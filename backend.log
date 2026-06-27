@@ -1,0 +1,36 @@
+> Task :app:compileJava UP-TO-DATE
+> Task :app:processResources NO-SOURCE
+> Task :app:classes UP-TO-DATE
+> Task :app:resolveMainClassName UP-TO-DATE
+
+> Task :app:bootRun
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v3.2.5)
+
+2026-06-27T20:34:47.482Z  INFO 150577 --- [           main] chess.backend.App                        : Starting App using Java 21.0.10 with PID 150577 (/app/backend/app/build/classes/java/main started by jules in /app/backend/app)
+2026-06-27T20:34:47.486Z  INFO 150577 --- [           main] chess.backend.App                        : No active profile set, falling back to 1 default profile: "default"
+2026-06-27T20:34:48.649Z  INFO 150577 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-06-27T20:34:48.670Z  INFO 150577 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-06-27T20:34:48.670Z  INFO 150577 --- [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.20]
+2026-06-27T20:34:48.741Z  INFO 150577 --- [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-06-27T20:34:48.742Z  INFO 150577 --- [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1209 ms
+2026-06-27T20:34:49.464Z  INFO 150577 --- [           main] chess.backend.service.StockfishService   : Stockfish engine started successfully.
+2026-06-27T20:34:49.822Z  INFO 150577 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path ''
+2026-06-27T20:34:49.831Z  INFO 150577 --- [           main] chess.backend.App                        : Started App in 2.763 seconds (process running for 3.129)
+2026-06-27T20:35:24.828Z  INFO 150577 --- [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-06-27T20:35:24.828Z  INFO 150577 --- [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-06-27T20:35:24.829Z  INFO 150577 --- [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+2026-06-27T20:38:38.481Z  INFO 150577 --- [nio-8080-exec-5] c.b.controller.ChessWebSocketHandler     : WebSocket connection established: 90173d4b-77bc-5c31-f506-e645f5e0d7d0
+2026-06-27T20:38:38.481Z  INFO 150577 --- [nio-8080-exec-4] c.b.controller.ChessWebSocketHandler     : WebSocket connection established: 1fb21f13-d0f0-3d5f-188c-ba84dbcb5033
+2026-06-27T20:38:38.489Z  INFO 150577 --- [nio-8080-exec-4] c.b.controller.ChessWebSocketHandler     : WebSocket connection closed: 1fb21f13-d0f0-3d5f-188c-ba84dbcb5033
+2026-06-27T20:38:41.396Z  INFO 150577 --- [nio-8080-exec-6] c.b.controller.ChessWebSocketHandler     : WebSocket connection closed: 90173d4b-77bc-5c31-f506-e645f5e0d7d0
+2026-06-27T22:23:47.800Z  INFO 150577 --- [nio-8080-exec-7] c.b.controller.ChessWebSocketHandler     : WebSocket connection established: 66503cc8-f379-be7b-a401-f58349711f4a
+2026-06-27T22:23:47.800Z  INFO 150577 --- [nio-8080-exec-8] c.b.controller.ChessWebSocketHandler     : WebSocket connection established: a9bdbaee-79c0-9039-4817-8418fb095a3e
+2026-06-27T22:23:47.840Z  INFO 150577 --- [nio-8080-exec-7] c.b.controller.ChessWebSocketHandler     : WebSocket connection closed: 66503cc8-f379-be7b-a401-f58349711f4a
+2026-06-27T22:23:50.723Z  INFO 150577 --- [nio-8080-exec-9] c.b.controller.ChessWebSocketHandler     : WebSocket connection closed: a9bdbaee-79c0-9039-4817-8418fb095a3e
