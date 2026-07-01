@@ -56,9 +56,13 @@ export const Game: React.FC<GameProps> = ({ settings, onGoBack, onAnalyze }) => 
 
         const from = engineMove.substring(0, 2);
         const to = engineMove.substring(2, 4);
-        const promotion = engineMove.length > 4 ? engineMove.substring(4, 5) : undefined;
 
-        makeAMove({ from, to, promotion }, true);
+        const moveObj: { from: string; to: string; promotion?: string } = { from, to };
+        if (engineMove.length > 4) {
+          moveObj.promotion = engineMove.substring(4, 5);
+        }
+
+        makeAMove(moveObj, true);
       }
     };
 
