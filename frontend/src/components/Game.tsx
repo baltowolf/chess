@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 
@@ -120,6 +120,15 @@ export const Game: React.FC<GameProps> = ({ settings, onGoBack, onAnalyze }) => 
     return true;
   }
 
+  const pairedMoves = useMemo(() => {
+    const result = [];
+    const length = Math.ceil(moveHistory.length / 2);
+    for (let i = 0; i < length; i++) {
+      result.push([moveHistory[i * 2], moveHistory[i * 2 + 1]]);
+    }
+    return result;
+  }, [moveHistory]);
+
   const isGameOver = game.isGameOver();
 
   return (
@@ -218,14 +227,7 @@ export const Game: React.FC<GameProps> = ({ settings, onGoBack, onAnalyze }) => 
       <div className="w-full md:w-64 bg-neutral-800 p-4 rounded-xl border border-neutral-700 h-[600px] overflow-y-auto">
         <h3 className="font-bold text-lg mb-4 text-white">Move History</h3>
         <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-sm font-mono text-neutral-300">
-          {moveHistory.reduce((result: any[], move: any, index: number) => {
-            if (index % 2 === 0) {
-              result.push([move]);
-            } else {
-              result[result.length - 1].push(move);
-            }
-            return result;
-          }, []).map((pair: any[], i: number) => (
+          {pairedMoves.map((pair: any[], i: number) => (
             <React.Fragment key={i}>
               <div className="col-span-2 text-neutral-500 text-xs mt-1">{i + 1}.</div>
               <div className="px-2 py-1 bg-neutral-700 rounded">{pair[0].san}</div>
