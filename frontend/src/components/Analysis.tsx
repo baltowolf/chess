@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 import { ChevronLeft, ChevronRight, RotateCcw, MessageSquare } from 'lucide-react';
+import { getWebSocketUrl } from '../utils/config';
 
 interface AnalysisProps {
   history: any[];
@@ -34,7 +35,7 @@ export const Analysis: React.FC<AnalysisProps> = ({ history, onGoBack }) => {
 
     const fetchExplanation = () => {
       // Mocking the call to our /ws-chess or REST API for explanation
-      const ws = new WebSocket('ws://localhost:8080/ws-chess');
+      const ws = new WebSocket(getWebSocketUrl());
 
       ws.onopen = () => {
         // Mock random evaluations for the sake of the demonstration

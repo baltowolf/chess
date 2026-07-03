@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
+import { getWebSocketUrl } from '../utils/config';
 
 interface GameProps {
   settings: {
@@ -39,7 +40,7 @@ export const Game: React.FC<GameProps> = ({ settings, onGoBack, onAnalyze }) => 
   useEffect(() => {
     // Connect to WebSocket
     // Use window.location.hostname in production, localhost for dev
-    ws.current = new WebSocket('ws://localhost:8080/ws-chess');
+    ws.current = new WebSocket(getWebSocketUrl());
 
     ws.current.onopen = () => {
       console.log('Connected to chess engine');
