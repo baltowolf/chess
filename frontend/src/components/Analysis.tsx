@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
 import { ChevronLeft, ChevronRight, RotateCcw, MessageSquare } from 'lucide-react';
@@ -13,63 +13,66 @@ export const Analysis: React.FC<AnalysisProps> = ({ history, onGoBack }) => {
   const [explanation, setExplanation] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
 
+  const wsRef = useRef<WebSocket | null>(null);
+  const [isWsReady, setIsWsReady] = useState(false);
+
   const currentMove = history[currentMoveIndex];
   const fen = currentMove ? currentMove.fenAfter : new Chess().fen();
   const moveNumber = currentMoveIndex >= 0 ? Math.floor(currentMoveIndex / 2) + 1 : 0;
   const isWhiteToMove = currentMoveIndex >= 0 ? currentMoveIndex % 2 !== 0 : true; // Since the move at index 0 is white, the *next* turn is black
 
   useEffect(() => {
-    // In a full implementation, we'd make a WebSocket or REST call here to get
-    // the evaluation and the text explanation from the AiExplanationService.
-    // We mock this using a simple timeout to simulate network request since
-    // the backend AI service is currently a placeholder expecting eval values.
+    const ws = new WebSocket('ws://localhost:8080/ws-chess');
+    wsRef.current = ws;
 
+    ws.onopen = () => setIsWsReady(true);
+    ws.onclose = () => setIsWsReady(false);
+    ws.onerror = () => {
+      setExplanation('Failed to load analysis.');
+      setIsLoading(false);
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, []);
+
+  useEffect(() => {
     if (currentMoveIndex < 0) {
       setExplanation('Start of the game.');
+      setIsLoading(false);
       return;
     }
+
+    if (!isWsReady || !wsRef.current) return;
 
     setIsLoading(true);
     setExplanation('');
 
-    const fetchExplanation = () => {
-      // Mocking the call to our /ws-chess or REST API for explanation
-      const ws = new WebSocket('ws://localhost:8080/ws-chess');
+    const ws = wsRef.current;
 
-      ws.onopen = () => {
-        // Mock random evaluations for the sake of the demonstration
-        // Normally Stockfish evaluates the position before and after the move.
-        const mockEvalBefore = Math.floor(Math.random() * 200) - 100;
-        const mockEvalAfter = mockEvalBefore + (Math.floor(Math.random() * 150) - 75);
-
-        ws.send(JSON.stringify({
-          type: 'ANALYZE_MOVE',
-          move: currentMove.san,
-          evalBefore: mockEvalBefore,
-          evalAfter: mockEvalAfter,
-          isWhiteToMove: isWhiteToMove // Whose move was it?
-        }));
-      };
-
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'ANALYSIS_RESULT') {
-          setExplanation(data.explanation);
-          setIsLoading(false);
-          ws.close();
-        }
-      };
-
-      ws.onerror = () => {
-        setExplanation('Failed to load analysis.');
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'ANALYSIS_RESULT') {
+        setExplanation(data.explanation);
         setIsLoading(false);
-      };
+      }
     };
 
-    fetchExplanation();
+    // Mock random evaluations for the sake of the demonstration
+    // Normally Stockfish evaluates the position before and after the move.
+    const mockEvalBefore = Math.floor(Math.random() * 200) - 100;
+    const mockEvalAfter = mockEvalBefore + (Math.floor(Math.random() * 150) - 75);
 
-  }, [currentMoveIndex, currentMove, isWhiteToMove]);
+    ws.send(JSON.stringify({
+      type: 'ANALYZE_MOVE',
+      move: currentMove.san,
+      evalBefore: mockEvalBefore,
+      evalAfter: mockEvalAfter,
+      isWhiteToMove: isWhiteToMove // Whose move was it?
+    }));
 
+  }, [currentMoveIndex, currentMove, isWhiteToMove, isWsReady]);
   const goToStart = () => setCurrentMoveIndex(-1);
   const goToPrev = () => setCurrentMoveIndex(Math.max(-1, currentMoveIndex - 1));
   const goToNext = () => setCurrentMoveIndex(Math.min(history.length - 1, currentMoveIndex + 1));
