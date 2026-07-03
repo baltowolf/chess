@@ -1,0 +1,78 @@
+<div class="flex flex-col items-center justify-center min-h-screen bg-neutral-900 text-neutral-100 p-4">
+  <div class="max-w-md w-full bg-neutral-800 rounded-xl shadow-2xl overflow-hidden border border-neutral-700">
+    <div class="p-6 bg-neutral-750 border-b border-neutral-700">
+      <h1 class="text-3xl font-bold text-center text-white flex items-center justify-center gap-2">
+        <lucide-icon [img]="Settings" class="w-8 h-8 text-blue-500"></lucide-icon>
+        Play vs Computer
+      </h1>
+    </div>
+
+    <div class="p-6 space-y-6">
+      <!-- Difficulty -->
+      <div class="space-y-2">
+        <label class="text-sm font-medium text-neutral-300">Engine Difficulty (ELO)</label>
+        <input
+          type="range"
+          min="800"
+          max="3200"
+          step="100"
+          [(ngModel)]="difficulty"
+          class="w-full accent-blue-500"
+        />
+        <div class="text-center font-semibold text-blue-400">{{ difficulty }} ELO</div>
+      </div>
+
+      <!-- Side Selection -->
+      <div class="space-y-2">
+        <label class="text-sm font-medium text-neutral-300">Play as</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button
+            (click)="setSide('white')"
+            [ngClass]="side === 'white' ? 'border-blue-500 bg-blue-500/20' : 'border-neutral-600 hover:bg-neutral-700'"
+            class="p-3 rounded-lg border flex justify-center items-center"
+          >
+            <div class="w-6 h-6 rounded-full bg-white border-2 border-neutral-300"></div>
+          </button>
+          <button
+            (click)="setSide('random')"
+            [ngClass]="side === 'random' ? 'border-blue-500 bg-blue-500/20' : 'border-neutral-600 hover:bg-neutral-700'"
+            class="p-3 rounded-lg border font-bold text-xl flex justify-center items-center"
+          >
+            ?
+          </button>
+          <button
+            (click)="setSide('black')"
+            [ngClass]="side === 'black' ? 'border-blue-500 bg-blue-500/20' : 'border-neutral-600 hover:bg-neutral-700'"
+            class="p-3 rounded-lg border flex justify-center items-center"
+          >
+            <div class="w-6 h-6 rounded-full bg-black border-2 border-neutral-600"></div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Time Control (Visual only for now) -->
+      <div class="space-y-2">
+        <label class="text-sm font-medium text-neutral-300">Time Control</label>
+        <select
+          [(ngModel)]="timeControl"
+          class="w-full bg-neutral-700 border border-neutral-600 text-white rounded-lg p-3 outline-none focus:border-blue-500"
+        >
+          <option value="3+0">Blitz (3 min)</option>
+          <option value="3+2">Blitz (3+2)</option>
+          <option value="5+0">Blitz (5 min)</option>
+          <option value="10+0">Rapid (10 min)</option>
+          <option value="15+10">Rapid (15+10)</option>
+          <option value="unlimited">Unlimited</option>
+        </select>
+      </div>
+
+      <button
+        (click)="handleStart()"
+        class="w-full py-4 mt-4 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-lg transition-colors flex justify-center items-center gap-2 shadow-lg shadow-blue-500/20"
+      >
+        <lucide-icon [img]="Play" class="w-6 h-6 fill-current"></lucide-icon>
+        Start Game
+      </button>
+    </div>
+  </div>
+</div>

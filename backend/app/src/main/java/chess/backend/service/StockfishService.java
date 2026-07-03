@@ -21,7 +21,7 @@ public class StockfishService {
     @PostConstruct
     public void startEngine() {
         try {
-            process = new ProcessBuilder("C:\\Users\\Alex\\chess\\stockfish\\stockfish-windows-x86-64-avx2.exe").start();
+            process = new ProcessBuilder("/usr/games/stockfish").start();
             reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()));
 
