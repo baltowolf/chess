@@ -1,4 +1,1 @@
-## Log:
-- Angular with esbuild cannot run Tailwind v4 as a PostCSS plugin directly via standard `@tailwindcss/postcss`. Using standard Tailwind v3 with `tailwind.config.js` and PostCSS plugins configuration successfully applies standard styles.
-- When `cm-chessboard` emits `INPUT_EVENT_TYPE.moveDone`, visually moving the piece via `.move()` does NOT update the board state. `cm-chessboard` manages its internal board, but to align it properly with our app logic, using our wrapper `makeAMove()` manages both `.move()` and triggering Engine calls without causing race conditions.
-- Test environments may not have Stockfish installed; `StockfishService` now catches the initial launch error instead of throwing a RuntimeException, ensuring test frameworks like Spring Boot `@SpringBootTest` won't crash when running `contextLoads()`.
+1. **Chess Engine**: `cm-chessboard` uses specific lifecycle events for move inputs (`moveInputStarted`, `validateMoveInput`). The documentation may use specific nomenclature (e.g. they don't have a `moveDone` event type). Always check library specific source definitions if unexpected event silences occur.
