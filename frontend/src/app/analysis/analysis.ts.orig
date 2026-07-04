@@ -19,7 +19,6 @@ import {
   RotateCcw,
   MessageSquare,
 } from 'lucide-angular';
-import { getWebSocketUrl } from '../../utils/config';
 
 @Component({
   selector: 'app-analysis',
@@ -102,7 +101,7 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
     const currentMove = this.getCurrentMove();
     const isWhiteToMove = this.getIsWhiteToMove();
 
-    const ws = new WebSocket(getWebSocketUrl());
+    const ws = new WebSocket('ws://localhost:8080/ws-chess');
 
     ws.onopen = () => {
       const mockEvalBefore = Math.floor(Math.random() * 200) - 100;
