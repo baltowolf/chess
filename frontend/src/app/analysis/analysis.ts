@@ -1,15 +1,31 @@
-import { Component, EventEmitter, Input, Output, ViewChild, OnInit, ElementRef, OnDestroy, AfterViewInit } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  Output,
+  ViewChild,
+  OnInit,
+  ElementRef,
+  OnDestroy,
+  AfterViewInit,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Chess } from 'chess.js';
-import { LucideAngularModule, ChevronLeft, ChevronRight, RotateCcw, MessageSquare } from 'lucide-angular';
+import {
+  LucideAngularModule,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
+  MessageSquare,
+} from 'lucide-angular';
 
 @Component({
   selector: 'app-analysis',
   standalone: true,
   imports: [CommonModule, FormsModule, LucideAngularModule],
   templateUrl: './analysis.html',
-  styleUrl: './analysis.css'
+  styleUrl: './analysis.css',
 })
 export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   readonly ChevronLeft = ChevronLeft;
@@ -37,10 +53,10 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
 
     this.chessboard = new Chessboard(this.boardContainer.nativeElement, {
       position: this.getCurrentFen(),
-      assetsUrl: "/assets/",
+      assetsUrl: '/assets/',
       style: {
-         cssClass: "default"
-      }
+        cssClass: 'default',
+      },
     });
   }
 
@@ -69,7 +85,7 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
 
   updateBoard() {
     if (this.chessboard) {
-       this.chessboard.setPosition(this.getCurrentFen());
+      this.chessboard.setPosition(this.getCurrentFen());
     }
   }
 
@@ -91,13 +107,15 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
       const mockEvalBefore = Math.floor(Math.random() * 200) - 100;
       const mockEvalAfter = mockEvalBefore + (Math.floor(Math.random() * 150) - 75);
 
-      ws.send(JSON.stringify({
-        type: 'ANALYZE_MOVE',
-        move: currentMove.san,
-        evalBefore: mockEvalBefore,
-        evalAfter: mockEvalAfter,
-        isWhiteToMove: isWhiteToMove
-      }));
+      ws.send(
+        JSON.stringify({
+          type: 'ANALYZE_MOVE',
+          move: currentMove.san,
+          evalBefore: mockEvalBefore,
+          evalAfter: mockEvalAfter,
+          isWhiteToMove: isWhiteToMove,
+        }),
+      );
     };
 
     ws.onmessage = (event) => {
