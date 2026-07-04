@@ -33,9 +33,10 @@ export const Analysis: React.FC<AnalysisProps> = ({ history, onGoBack }) => {
     setIsLoading(true);
     setExplanation('');
 
+    let ws: WebSocket | null = null;
     const fetchExplanation = () => {
       // Mocking the call to our /ws-chess or REST API for explanation
-      const ws = new WebSocket(getWebSocketUrl());
+      ws = new WebSocket(getWebSocketUrl());
 
       ws.onopen = () => {
         // Mock random evaluations for the sake of the demonstration
@@ -43,7 +44,7 @@ export const Analysis: React.FC<AnalysisProps> = ({ history, onGoBack }) => {
         const mockEvalBefore = Math.floor(Math.random() * 200) - 100;
         const mockEvalAfter = mockEvalBefore + (Math.floor(Math.random() * 150) - 75);
 
-        ws.send(JSON.stringify({
+        ws?.send(JSON.stringify({
           type: 'ANALYZE_MOVE',
           move: currentMove.san,
           evalBefore: mockEvalBefore,
@@ -57,7 +58,7 @@ export const Analysis: React.FC<AnalysisProps> = ({ history, onGoBack }) => {
         if (data.type === 'ANALYSIS_RESULT') {
           setExplanation(data.explanation);
           setIsLoading(false);
-          ws.close();
+          ws?.close();
         }
       };
 
@@ -67,8 +68,19 @@ export const Analysis: React.FC<AnalysisProps> = ({ history, onGoBack }) => {
       };
     };
 
-    fetchExplanation();
+    // ⚡ Bolt Optimization: Debounce WebSocket requests by 500ms.
+    // This prevents spamming the backend with analysis requests and opening
+    // too many connections when a user rapidly scrubs through move history.
+    const debounceTimer = setTimeout(() => {
+      fetchExplanation();
+    }, 500);
 
+    return () => {
+      clearTimeout(debounceTimer);
+      if (ws) {
+        ws.close();
+      }
+    };
   }, [currentMoveIndex, currentMove, isWhiteToMove]);
 
   const goToStart = () => setCurrentMoveIndex(-1);

@@ -1,0 +1,3 @@
+## 2024-07-04 - Debouncing Analysis WebSocket Spam
+**Learning:** In the React frontend's Analysis board (`Analysis.tsx`), rapidly scrubbing through move history immediately triggers a new WebSocket connection (`new WebSocket(...)`) inside a `useEffect` on every index change. Because of this, it's very easy to DDoS the backend engine service when rapidly iterating through game history.
+**Action:** When working on rapidly-updating UI states that trigger network/WebSocket requests, always implement a debounce (e.g. `setTimeout`) and ensure strict cleanup of both the timer and the pending connection within the `useEffect` return function.
