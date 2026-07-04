@@ -1,6 +1,6 @@
 export function getWebSocketUrl(): string {
-  if (import.meta.env.VITE_WS_URL) {
-    return import.meta.env.VITE_WS_URL;
+  if (import.meta.env['VITE_WS_URL']) {
+    return import.meta.env['VITE_WS_URL'];
   }
 
   // Fallback to dynamic URL based on current hostname
