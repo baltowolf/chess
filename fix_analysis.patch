@@ -1,0 +1,19 @@
+--- frontend/src/app/analysis/analysis.ts
++++ frontend/src/app/analysis/analysis.ts
+@@ -14,6 +14,7 @@
+   RotateCcw,
+   MessageSquare,
+ } from 'lucide-angular';
++import { getWebSocketUrl } from '../../utils/config';
+
+ @Component({
+   selector: 'app-analysis',
+@@ -73,7 +74,7 @@
+     const currentMove = this.getCurrentMove();
+     const isWhiteToMove = this.getIsWhiteToMove();
+
+-    const ws = new WebSocket('ws://localhost:8080/ws-chess');
++    const ws = new WebSocket(getWebSocketUrl());
+
+     ws.onopen = () => {
+       const mockEvalBefore = Math.floor(Math.random() * 200) - 100;

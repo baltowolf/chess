@@ -33,24 +33,14 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
   game = new Chess();
   moveHistory: any[] = [];
   resigned = false;
-  timeOut = false;
-  timeOutSide = '';
   ws: WebSocket | null = null;
 
-  boardTheme = 'default';
+  boardTheme = 'classic';
   showSettings = false;
 
   chessboard: any;
-  INPUT_EVENT_TYPE: any;
-
-  // Timers
-  playerTime = 0;
-  engineTime = 0;
-  increment = 0;
-  timerInterval: any;
 
   ngOnInit() {
-    this.parseTimeControl();
     this.ws = new WebSocket(getWebSocketUrl());
 
     this.ws.onopen = () => {
@@ -80,74 +70,18 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
         this.makeAMove(moveObj, true);
       }
     };
-
-    this.startTimer();
-  }
-
-  parseTimeControl() {
-    // e.g., "10+0", "5+3"
-    if (this.settings.timeControl) {
-      const parts = this.settings.timeControl.split('+');
-      const minutes = parseInt(parts[0], 10);
-      const inc = parseInt(parts[1], 10);
-
-      const seconds = minutes * 60;
-      this.playerTime = seconds;
-      this.engineTime = seconds;
-      this.increment = isNaN(inc) ? 0 : inc;
-    } else {
-      this.playerTime = 600;
-      this.engineTime = 600;
-      this.increment = 0;
-    }
-  }
-
-  startTimer() {
-    this.timerInterval = setInterval(() => {
-      if (this.isGameOver()) {
-        clearInterval(this.timerInterval);
-        return;
-      }
-
-      // Check whose turn it is and decrement
-      if (this.isPlayerTurn()) {
-        this.playerTime--;
-        if (this.playerTime <= 0) {
-          this.playerTime = 0;
-          this.timeOut = true;
-          this.timeOutSide = 'Player';
-          clearInterval(this.timerInterval);
-        }
-      } else if (this.isEngineTurn()) {
-        this.engineTime--;
-        if (this.engineTime <= 0) {
-          this.engineTime = 0;
-          this.timeOut = true;
-          this.timeOutSide = 'Engine';
-          clearInterval(this.timerInterval);
-        }
-      }
-    }, 1000);
-  }
-
-  formatTime(seconds: number): string {
-    const min = Math.floor(seconds / 60);
-    const sec = seconds % 60;
-    return `${min}:${sec < 10 ? '0' : ''}${sec}`;
   }
 
   async ngAfterViewInit() {
     // Dynamically import cm-chessboard
     const { Chessboard, COLOR, INPUT_EVENT_TYPE } = await import('cm-chessboard');
-    this.INPUT_EVENT_TYPE = INPUT_EVENT_TYPE;
 
     this.chessboard = new Chessboard(this.boardContainer.nativeElement, {
       position: this.game.fen(),
       assetsUrl: '/assets/',
       orientation: this.settings.side === 'white' ? COLOR.white : COLOR.black,
       style: {
-        cssClass: this.boardTheme,
-        animationDuration: 200,
+        cssClass: 'default',
       },
     });
 
@@ -188,9 +122,6 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
     if (this.chessboard) {
       this.chessboard.destroy();
     }
-    if (this.timerInterval) {
-      clearInterval(this.timerInterval);
-    }
   }
 
   requestEngineMove(currentFen: string) {
@@ -210,15 +141,6 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
       const result = this.game.move(move);
       this.moveHistory.push({ ...result, fenAfter: this.game.fen() });
 
-      // Add increment
-      if (this.moveHistory.length > (this.settings.side === 'black' ? 1 : 0)) {
-        if (isEngine) {
-          this.engineTime += this.increment;
-        } else {
-          this.playerTime += this.increment;
-        }
-      }
-
       if (this.chessboard) {
         this.chessboard.setPosition(this.game.fen(), true);
       }
@@ -234,7 +156,7 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
   }
 
   isPlayerTurn(): boolean {
-    if (this.game.isGameOver() || this.timeOut) return false;
+    if (this.game.isGameOver()) return false;
     if (
       (this.settings.side === 'white' && this.game.turn() === 'b') ||
       (this.settings.side === 'black' && this.game.turn() === 'w')
@@ -244,28 +166,25 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
     return true;
   }
 
-  isEngineTurn(): boolean {
-    if (this.game.isGameOver() || this.timeOut) return false;
-    return !this.isPlayerTurn();
-  }
-
   resign() {
     this.resigned = true;
   }
 
   isGameOver(): boolean {
-    return this.game.isGameOver() || this.resigned || this.timeOut;
+    return this.game.isGameOver() || this.resigned;
   }
 
-  onThemeChange() {
-    if (this.chessboard) {
-      this.chessboard.props.style.cssClass = this.boardTheme;
-      const svg = this.boardContainer.nativeElement.querySelector('svg');
-      if (svg) {
-        let classes = svg.getAttribute('class') || '';
-        classes = classes.replace(/default|green|blue|chess-club|chessboard-js|black-and-white/g, '').trim();
-        svg.setAttribute('class', classes + ' ' + this.boardTheme);
-      }
+  getThemeColors() {
+    switch (this.boardTheme) {
+      case 'wood':
+        return { dark: '#b58863', light: '#f0d9b5' };
+      case 'blue':
+        return { dark: '#4b7399', light: '#eae9d2' };
+      case 'purple':
+        return { dark: '#7b5b8d', light: '#f0e6f5' };
+      case 'classic':
+      default:
+        return { dark: '#779556', light: '#ebecd0' };
     }
   }
 }

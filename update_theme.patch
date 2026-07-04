@@ -1,0 +1,17 @@
+--- frontend/src/app/game/game.ts
++++ frontend/src/app/game/game.ts
+@@ -35,2 +35,14 @@
+   boardTheme = 'classic';
+   showSettings = false;
++
++  onThemeChange() {
++    if (this.chessboard) {
++      this.chessboard.props.style.cssClass = this.boardTheme;
++      const svg = this.boardContainer.nativeElement.querySelector('svg');
++      if (svg) {
++        let classes = svg.getAttribute('class') || '';
++        classes = classes.replace(/default|green|blue|chess-club|chessboard-js|black-and-white/g, '').trim();
++        svg.setAttribute('class', classes + ' ' + this.boardTheme);
++      }
++    }
++  }
