@@ -9,7 +9,7 @@ import { Analysis } from './analysis/analysis';
   standalone: true,
   imports: [CommonModule, Home, Game, Analysis],
   templateUrl: './app.html',
-  styleUrl: './app.css'
+  styleUrl: './app.css',
 })
 export class App {
   gameState = signal<'setup' | 'playing' | 'analysis'>('setup');

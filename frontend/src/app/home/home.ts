@@ -8,7 +8,7 @@ import { LucideAngularModule, Settings, Play } from 'lucide-angular';
   standalone: true,
   imports: [CommonModule, FormsModule, LucideAngularModule],
   templateUrl: './home.html',
-  styleUrl: './home.css'
+  styleUrl: './home.css',
 })
 export class Home {
   readonly Settings = Settings;
@@ -33,7 +33,7 @@ export class Home {
     this.startGame.emit({
       difficulty: this.difficulty,
       side: finalSide,
-      timeControl: this.timeControl
+      timeControl: this.timeControl,
     });
   }
 }

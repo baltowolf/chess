@@ -1,7 +1,18 @@
-import { Component, EventEmitter, Input, Output, ViewChild, OnInit, OnDestroy, AfterViewInit, ElementRef } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  Output,
+  ViewChild,
+  OnInit,
+  OnDestroy,
+  AfterViewInit,
+  ElementRef,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Chess } from 'chess.js';
+import { getWebSocketUrl } from '../../utils/config';
 
 declare var window: any;
 
@@ -10,7 +21,7 @@ declare var window: any;
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './game.html',
-  styleUrl: './game.css'
+  styleUrl: './game.css',
 })
 export class Game implements OnInit, OnDestroy, AfterViewInit {
   @Input() settings: any;
@@ -29,11 +40,15 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
   chessboard: any;
 
   ngOnInit() {
-    this.ws = new WebSocket('ws://localhost:8080/ws-chess');
+    this.ws = new WebSocket(getWebSocketUrl());
 
     this.ws.onopen = () => {
       console.log('Connected to chess engine');
-      if (this.settings.side === 'black' && this.game.moveNumber() === 1 && this.game.turn() === 'w') {
+      if (
+        this.settings.side === 'black' &&
+        this.game.moveNumber() === 1 &&
+        this.game.turn() === 'w'
+      ) {
         this.requestEngineMove(this.game.fen());
       }
     };
@@ -62,34 +77,29 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
 
     this.chessboard = new Chessboard(this.boardContainer.nativeElement, {
       position: this.game.fen(),
-      assetsUrl: "/assets/",
+      assetsUrl: '/assets/',
       orientation: this.settings.side === 'white' ? COLOR.white : COLOR.black,
       style: {
-         cssClass: "default"
-      }
+        cssClass: 'default',
+      },
     });
 
     this.chessboard.enableMoveInput((event: any) => {
       if (event.type === INPUT_EVENT_TYPE.moveDone) {
         if (!this.isPlayerTurn()) {
-           return false; // prevent move visually
+          return false; // prevent move visually
         }
 
         const move = { from: event.squareFrom, to: event.squareTo, promotion: 'q' };
 
         // Let's validate the move with chess.js
         try {
-          const result = this.game.move(move);
+          const result = this.makeAMove(move, false);
 
           if (result) {
-            this.moveHistory.push({ ...result, fenAfter: this.game.fen() });
-
-            if (!this.game.isGameOver()) {
-              this.requestEngineMove(this.game.fen());
-            }
             return true; // valid move
           }
-        } catch(e) {
+        } catch (e) {
           return false;
         }
         return false; // invalid move
@@ -109,11 +119,13 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
 
   requestEngineMove(currentFen: string) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({
-        type: 'REQUEST_MOVE',
-        fen: currentFen,
-        difficulty: this.settings.difficulty
-      }));
+      this.ws.send(
+        JSON.stringify({
+          type: 'REQUEST_MOVE',
+          fen: currentFen,
+          difficulty: this.settings.difficulty,
+        }),
+      );
     }
   }
 
@@ -138,8 +150,10 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
 
   isPlayerTurn(): boolean {
     if (this.game.isGameOver()) return false;
-    if ((this.settings.side === 'white' && this.game.turn() === 'b') ||
-        (this.settings.side === 'black' && this.game.turn() === 'w')) {
+    if (
+      (this.settings.side === 'white' && this.game.turn() === 'b') ||
+      (this.settings.side === 'black' && this.game.turn() === 'w')
+    ) {
       return false;
     }
     return true;
