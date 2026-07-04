@@ -32,6 +32,7 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
 
   game = new Chess();
   moveHistory: any[] = [];
+  resigned = false;
   ws: WebSocket | null = null;
 
   boardTheme = 'classic';
@@ -85,7 +86,13 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
     });
 
     this.chessboard.enableMoveInput((event: any) => {
-      if (event.type === INPUT_EVENT_TYPE.moveDone) {
+      if (event.type === INPUT_EVENT_TYPE.moveInputStarted) {
+        if (!this.isPlayerTurn()) {
+          return false; // prevent starting move if not player's turn
+        }
+        return true;
+      }
+      if (event.type === INPUT_EVENT_TYPE.validateMoveInput) {
         if (!this.isPlayerTurn()) {
           return false; // prevent move visually
         }
@@ -159,8 +166,12 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
     return true;
   }
 
+  resign() {
+    this.resigned = true;
+  }
+
   isGameOver(): boolean {
-    return this.game.isGameOver();
+    return this.game.isGameOver() || this.resigned;
   }
 
   getThemeColors() {

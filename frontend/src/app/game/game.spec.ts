@@ -1,3 +1,5 @@
+import * as cmChessboard from 'cm-chessboard';
+vi.mock('cm-chessboard', () => ({ Chessboard: vi.fn().mockImplementation(function() { return { destroy: vi.fn(), enableMoveInput: vi.fn(), setPosition: vi.fn() }; }), COLOR: { white: 'w', black: 'b' }, INPUT_EVENT_TYPE: {} }));
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Game } from './game';
 
