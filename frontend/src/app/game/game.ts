@@ -233,8 +233,19 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  private _cachedIsGameOver: boolean = false;
+  private _lastFenForGameOver: string = '';
+
+  private _updateGameState(): void {
+    const currentFen = this.game.fen();
+    if (this._lastFenForGameOver !== currentFen) {
+      this._cachedIsGameOver = this.game.isGameOver();
+      this._lastFenForGameOver = currentFen;
+    }
+  }
+
   isPlayerTurn(): boolean {
-    if (this.game.isGameOver() || this.timeOut) return false;
+    if (this.isGameOver() || this.timeOut) return false;
     if (
       (this.settings.side === 'white' && this.game.turn() === 'b') ||
       (this.settings.side === 'black' && this.game.turn() === 'w')
@@ -245,7 +256,7 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
   }
 
   isEngineTurn(): boolean {
-    if (this.game.isGameOver() || this.timeOut) return false;
+    if (this.isGameOver() || this.timeOut) return false;
     return !this.isPlayerTurn();
   }
 
@@ -254,7 +265,9 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
   }
 
   isGameOver(): boolean {
-    return this.game.isGameOver() || this.resigned || this.timeOut;
+    if (this.resigned || this.timeOut) return true;
+    this._updateGameState();
+    return this._cachedIsGameOver;
   }
 
   onThemeChange() {
