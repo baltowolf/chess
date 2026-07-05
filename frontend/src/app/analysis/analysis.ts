@@ -8,6 +8,7 @@ import {
   ElementRef,
   OnDestroy,
   AfterViewInit,
+  ChangeDetectorRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -39,10 +40,13 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
 
   @ViewChild('boardContainer', { static: false }) boardContainer!: ElementRef;
   chessboard: any;
+  ws: WebSocket | null = null;
 
   currentMoveIndex: number = 0;
   explanation: string = '';
   isLoading: boolean = false;
+
+  constructor(private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
     this.currentMoveIndex = this.history.length - 1;
@@ -50,13 +54,14 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   }
 
   async ngAfterViewInit() {
-    const { Chessboard, COLOR } = await import('cm-chessboard');
+    const { Chessboard } = await import('cm-chessboard');
 
     this.chessboard = new Chessboard(this.boardContainer.nativeElement, {
       position: this.getCurrentFen(),
       assetsUrl: '/assets/',
       style: {
         cssClass: 'default',
+        animationDuration: 300,
       },
     });
   }
@@ -64,6 +69,9 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   ngOnDestroy() {
     if (this.chessboard) {
       this.chessboard.destroy();
+    }
+    if (this.ws) {
+      this.ws.close();
     }
   }
 
@@ -74,6 +82,12 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   getCurrentFen() {
     const currentMove = this.getCurrentMove();
     return currentMove ? currentMove.fenAfter : new Chess().fen();
+  }
+
+  getPreviousFen() {
+    if (this.currentMoveIndex < 0) return new Chess().fen();
+    if (this.currentMoveIndex === 0) return new Chess().fen();
+    return this.history[this.currentMoveIndex - 1].fenAfter;
   }
 
   getMoveNumber() {
@@ -93,44 +107,54 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   fetchExplanation() {
     if (this.currentMoveIndex < 0) {
       this.explanation = 'Start of the game.';
+      this.cdr.detectChanges();
       return;
     }
 
     this.isLoading = true;
     this.explanation = '';
+    this.cdr.detectChanges();
+
+    if (this.ws) {
+      this.ws.close();
+    }
 
     const currentMove = this.getCurrentMove();
     const isWhiteToMove = this.getIsWhiteToMove();
+    const fenBefore = this.getPreviousFen();
+    const fenAfter = this.getCurrentFen();
 
-    const ws = new WebSocket(getWebSocketUrl());
+    this.ws = new WebSocket(getWebSocketUrl());
 
-    ws.onopen = () => {
-      const mockEvalBefore = Math.floor(Math.random() * 200) - 100;
-      const mockEvalAfter = mockEvalBefore + (Math.floor(Math.random() * 150) - 75);
-
-      ws.send(
+    this.ws.onopen = () => {
+      this.ws?.send(
         JSON.stringify({
           type: 'ANALYZE_MOVE',
           move: currentMove.san,
-          evalBefore: mockEvalBefore,
-          evalAfter: mockEvalAfter,
+          fenBefore: fenBefore,
+          fenAfter: fenAfter,
           isWhiteToMove: isWhiteToMove,
         }),
       );
     };
 
-    ws.onmessage = (event) => {
+    this.ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === 'ANALYSIS_RESULT') {
         this.explanation = data.explanation;
         this.isLoading = false;
-        ws.close();
+        this.ws?.close();
+        this.ws = null;
+        this.cdr.detectChanges();
       }
     };
 
-    ws.onerror = () => {
-      this.explanation = 'Failed to load analysis.';
+    this.ws.onerror = () => {
+      this.explanation = 'Ошибка при получении анализа.';
       this.isLoading = false;
+      this.ws?.close();
+      this.ws = null;
+      this.cdr.detectChanges();
     };
   }
 

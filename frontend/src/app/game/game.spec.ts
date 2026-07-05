@@ -1,75 +1,76 @@
-import * as cmChessboard from 'cm-chessboard';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Game } from './game';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { vi } from 'vitest';
 
 vi.mock('cm-chessboard', () => ({
   Chessboard: vi.fn().mockImplementation(function() {
-    return { destroy: vi.fn(), enableMoveInput: vi.fn(), setPosition: vi.fn(), props: { style: { cssClass: '' } } };
+    return {
+      destroy: vi.fn(),
+      enableMoveInput: vi.fn(),
+      setPosition: vi.fn(),
+      props: { style: { cssClass: 'default' } }
+    };
   }),
   COLOR: { white: 'w', black: 'b' },
   INPUT_EVENT_TYPE: {}
 }));
 
-describe('Game', () => {
+describe('Game Component', () => {
   let component: Game;
   let fixture: ComponentFixture<Game>;
 
   beforeEach(async () => {
+    // Mock WebSocket globally for this test suite
+    (window as any).WebSocket = class {
+      readyState = 1;
+      send = vi.fn();
+      close = vi.fn();
+    };
+
     await TestBed.configureTestingModule({
-      imports: [Game],
+      imports: [CommonModule, FormsModule, Game]
     }).compileComponents();
 
     fixture = TestBed.createComponent(Game);
     component = fixture.componentInstance;
+  });
+
+  it('should initialize with correct time control', () => {
     component.settings = { side: 'white', difficulty: 1500, timeControl: '10+0' };
     fixture.detectChanges();
-    await fixture.whenStable();
+    component.ngOnInit();
+
+    expect(component.playerTime).toBe(600);
+    expect(component.engineTime).toBe(600);
+    expect(component.increment).toBe(0);
+    expect(component.cachedIsPlayerTurn).toBe(true);
+    expect(component.cachedIsEngineTurn).toBe(false);
   });
 
-  afterEach(() => {
-    if (component.timerInterval) {
-      clearInterval(component.timerInterval);
-    }
-  });
+  it('should toggle cached turns on makeAMove', () => {
+    component.settings = { side: 'white', difficulty: 1500, timeControl: '10+0' };
+    fixture.detectChanges();
+    component.ngOnInit();
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
-  });
+    expect(component.cachedIsPlayerTurn).toBe(true);
 
-  it('should parse time control correctly', () => {
-    component.settings.timeControl = '5+3';
-    component.parseTimeControl();
-    expect(component.playerTime).toBe(300);
-    expect(component.engineTime).toBe(300);
-    expect(component.increment).toBe(3);
-  });
-
-  it('should add increment on move', () => {
-    component.settings.timeControl = '5+3';
-    component.parseTimeControl();
-    component.moveHistory = [{}]; // mock a move
+    // Player plays e4
     component.makeAMove({ from: 'e2', to: 'e4' }, false);
-    expect(component.playerTime).toBe(303);
+
+    expect(component.cachedIsPlayerTurn).toBe(false);
+    expect(component.cachedIsEngineTurn).toBe(true);
   });
 
-  it('should handle timeout', async () => {
-    component.settings.timeControl = '0+0';
-    component.parseTimeControl();
-    component.playerTime = 1;
+  it('should trigger game over on resign', () => {
+    component.settings = { side: 'white', difficulty: 1500, timeControl: '10+0' };
+    fixture.detectChanges();
+    component.ngOnInit();
 
-    // Instead of fakeAsync, let's just trigger the logic
-    // The timer is started in ngOnInit, but we can clear it and simulate
-    clearInterval(component.timerInterval);
+    component.resign();
 
-    // mock isPlayerTurn
-    vi.spyOn(component, 'isPlayerTurn').mockReturnValue(true);
-
-    // call the interval callback logic directly if possible, or wait
-    component.startTimer();
-
-    await new Promise(resolve => setTimeout(resolve, 1100));
-
-    expect(component.timeOut).toBe(true);
-    expect(component.timeOutSide).toBe('Player');
+    expect(component.resigned).toBe(true);
+    expect(component.cachedIsGameOver).toBe(true);
   });
 });

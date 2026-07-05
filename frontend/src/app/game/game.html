@@ -45,24 +45,24 @@
       </div>
 
       <button
-        *ngIf="!isGameOver()"
+        *ngIf="!cachedIsGameOver"
         (click)="resign()"
         class="w-full py-2 bg-red-600/80 hover:bg-red-600 rounded text-white transition-colors mt-4"
       >
         Resign
       </button>
       <button
-        *ngIf="isGameOver()"
+        *ngIf="cachedIsGameOver"
         (click)="goBack.emit()"
         class="w-full py-2 bg-neutral-600 hover:bg-neutral-500 rounded text-white transition-colors mt-4"
       >
         Back to Setup
       </button>
       <button
-        [disabled]="!isGameOver()"
+        [disabled]="!cachedIsGameOver"
         (click)="analyze.emit(moveHistory)"
         [ngClass]="
-          isGameOver()
+          cachedIsGameOver
             ? 'bg-blue-600 hover:bg-blue-500'
             : 'bg-neutral-700 opacity-50 cursor-not-allowed'
         "
@@ -84,7 +84,7 @@
           <div class="text-xs text-neutral-400">{{ settings.difficulty }} ELO</div>
         </div>
       </div>
-      <div class="bg-neutral-800 px-4 py-2 rounded-lg font-mono text-xl text-white shadow" [class.text-amber-500]="isEngineTurn() && !isGameOver()">
+      <div class="bg-neutral-800 px-4 py-2 rounded-lg font-mono text-xl text-white shadow" [class.text-amber-500]="cachedIsEngineTurn && !cachedIsGameOver">
         {{ formatTime(engineTime) }}
       </div>
     </div>
@@ -94,7 +94,7 @@
       <div #boardContainer style="width: 100%; height: auto"></div>
 
       <!-- Loading overlay for engine move -->
-      <div *ngIf="isEngineTurn() && !isGameOver()" class="absolute bottom-2 right-2 flex items-center gap-2 bg-neutral-900/80 px-3 py-1.5 rounded-full z-10 text-xs text-white">
+      <div *ngIf="cachedIsEngineTurn && !cachedIsGameOver" class="absolute bottom-2 right-2 flex items-center gap-2 bg-neutral-900/80 px-3 py-1.5 rounded-full z-10 text-xs text-white">
         <div class="w-2 h-2 bg-white rounded-full animate-bounce"></div>
         <div class="w-2 h-2 bg-white rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
         <div class="w-2 h-2 bg-white rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
@@ -110,18 +110,18 @@
           <div class="text-xs text-neutral-400">Unrated</div>
         </div>
       </div>
-      <div class="bg-neutral-800 px-4 py-2 rounded-lg font-mono text-xl text-white shadow" [class.text-amber-500]="isPlayerTurn() && !isGameOver()">
+      <div class="bg-neutral-800 px-4 py-2 rounded-lg font-mono text-xl text-white shadow" [class.text-amber-500]="cachedIsPlayerTurn && !cachedIsGameOver">
         {{ formatTime(playerTime) }}
       </div>
     </div>
 
     <div
-      *ngIf="isGameOver()"
+      *ngIf="cachedIsGameOver"
       class="mt-4 p-4 bg-neutral-800 rounded-lg text-center border border-neutral-700"
     >
       <h3 class="text-xl font-bold text-white mb-2">Game Over</h3>
-      <p *ngIf="game.isCheckmate()" class="text-neutral-300">Checkmate!</p>
-      <p *ngIf="game.isDraw()" class="text-neutral-300">Draw</p>
+      <p *ngIf="cachedIsCheckmate" class="text-neutral-300">Checkmate!</p>
+      <p *ngIf="cachedIsDraw" class="text-neutral-300">Draw</p>
       <p *ngIf="resigned" class="text-neutral-300">Player resigned</p>
       <p *ngIf="timeOut" class="text-neutral-300">Time out - {{ timeOutSide }} lost</p>
     </div>
