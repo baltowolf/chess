@@ -47,7 +47,7 @@ public class ChessWebSocketHandler extends TextWebSocketHandler {
                 int difficulty = jsonNode.has("difficulty") ? jsonNode.get("difficulty").asInt() : 1500;
 
                 stockfishService.setDifficulty(difficulty);
-                String bestMove = stockfishService.getBestMove(fen, 1000); // 1 second for engine to think
+                String bestMove = stockfishService.getBestMove(fen, 1000);
 
                 ObjectNode response = mapper.createObjectNode();
                 response.put("type", "ENGINE_MOVE");
@@ -55,11 +55,14 @@ public class ChessWebSocketHandler extends TextWebSocketHandler {
 
                 session.sendMessage(new TextMessage(response.toString()));
             } else if ("ANALYZE_MOVE".equals(type)) {
-                // Placeholder for analysis. In a real app we'd get eval before and after.
                 String move = jsonNode.get("move").asText();
-                int evalBefore = jsonNode.get("evalBefore").asInt();
-                int evalAfter = jsonNode.get("evalAfter").asInt();
+                String fenBefore = jsonNode.get("fenBefore").asText();
+                String fenAfter = jsonNode.get("fenAfter").asText();
                 boolean isWhiteToMove = jsonNode.get("isWhiteToMove").asBoolean();
+
+                // Get real evaluations
+                int evalBefore = stockfishService.getEvaluation(fenBefore);
+                int evalAfter = stockfishService.getEvaluation(fenAfter);
 
                 String explanation = aiExplanationService.getExplanation(move, evalBefore, evalAfter, isWhiteToMove);
 

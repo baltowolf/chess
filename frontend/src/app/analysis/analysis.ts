@@ -39,6 +39,7 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
 
   @ViewChild('boardContainer', { static: false }) boardContainer!: ElementRef;
   chessboard: any;
+  ws: WebSocket | null = null;
 
   currentMoveIndex: number = 0;
   explanation: string = '';
@@ -50,7 +51,7 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   }
 
   async ngAfterViewInit() {
-    const { Chessboard, COLOR } = await import('cm-chessboard');
+    const { Chessboard } = await import('cm-chessboard');
 
     this.chessboard = new Chessboard(this.boardContainer.nativeElement, {
       position: this.getCurrentFen(),
@@ -65,6 +66,9 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
     if (this.chessboard) {
       this.chessboard.destroy();
     }
+    if (this.ws) {
+      this.ws.close();
+    }
   }
 
   getCurrentMove() {
@@ -74,6 +78,12 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   getCurrentFen() {
     const currentMove = this.getCurrentMove();
     return currentMove ? currentMove.fenAfter : new Chess().fen();
+  }
+
+  getPreviousFen() {
+    if (this.currentMoveIndex < 0) return new Chess().fen();
+    if (this.currentMoveIndex === 0) return new Chess().fen();
+    return this.history[this.currentMoveIndex - 1].fenAfter;
   }
 
   getMoveNumber() {
@@ -99,38 +109,44 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
     this.isLoading = true;
     this.explanation = '';
 
+    if (this.ws) {
+      this.ws.close();
+    }
+
     const currentMove = this.getCurrentMove();
     const isWhiteToMove = this.getIsWhiteToMove();
+    const fenBefore = this.getPreviousFen();
+    const fenAfter = this.getCurrentFen();
 
-    const ws = new WebSocket(getWebSocketUrl());
+    this.ws = new WebSocket(getWebSocketUrl());
 
-    ws.onopen = () => {
-      const mockEvalBefore = Math.floor(Math.random() * 200) - 100;
-      const mockEvalAfter = mockEvalBefore + (Math.floor(Math.random() * 150) - 75);
-
-      ws.send(
+    this.ws.onopen = () => {
+      this.ws?.send(
         JSON.stringify({
           type: 'ANALYZE_MOVE',
           move: currentMove.san,
-          evalBefore: mockEvalBefore,
-          evalAfter: mockEvalAfter,
+          fenBefore: fenBefore,
+          fenAfter: fenAfter,
           isWhiteToMove: isWhiteToMove,
         }),
       );
     };
 
-    ws.onmessage = (event) => {
+    this.ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === 'ANALYSIS_RESULT') {
         this.explanation = data.explanation;
         this.isLoading = false;
-        ws.close();
+        this.ws?.close();
+        this.ws = null;
       }
     };
 
-    ws.onerror = () => {
+    this.ws.onerror = () => {
       this.explanation = 'Failed to load analysis.';
       this.isLoading = false;
+      this.ws?.close();
+      this.ws = null;
     };
   }
 
