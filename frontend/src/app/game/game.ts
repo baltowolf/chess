@@ -14,8 +14,6 @@ import { FormsModule } from '@angular/forms';
 import { Chess } from 'chess.js';
 import { getWebSocketUrl } from '../../utils/config';
 
-declare var window: any;
-
 @Component({
   selector: 'app-game',
   standalone: true,
@@ -49,8 +47,18 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
   increment = 0;
   timerInterval: any;
 
+  // Cached state for template binding performance
+  // chess.js methods are too expensive for Angular change detection
+  cachedIsPlayerTurn = false;
+  cachedIsEngineTurn = false;
+  cachedIsGameOver = false;
+  cachedIsCheckmate = false;
+  cachedIsDraw = false;
+
   ngOnInit() {
     this.parseTimeControl();
+    this.updateCachedState(); // Initialize state
+
     this.ws = new WebSocket(getWebSocketUrl());
 
     this.ws.onopen = () => {
@@ -86,7 +94,7 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
 
   parseTimeControl() {
     // e.g., "10+0", "5+3"
-    if (this.settings.timeControl) {
+    if (this.settings && this.settings.timeControl) {
       const parts = this.settings.timeControl.split('+');
       const minutes = parseInt(parts[0], 10);
       const inc = parseInt(parts[1], 10);
@@ -104,26 +112,28 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
 
   startTimer() {
     this.timerInterval = setInterval(() => {
-      if (this.isGameOver()) {
+      if (this.cachedIsGameOver || this.timeOut) {
         clearInterval(this.timerInterval);
         return;
       }
 
       // Check whose turn it is and decrement
-      if (this.isPlayerTurn()) {
+      if (this.cachedIsPlayerTurn) {
         this.playerTime--;
         if (this.playerTime <= 0) {
           this.playerTime = 0;
           this.timeOut = true;
           this.timeOutSide = 'Player';
+          this.updateCachedState();
           clearInterval(this.timerInterval);
         }
-      } else if (this.isEngineTurn()) {
+      } else if (this.cachedIsEngineTurn) {
         this.engineTime--;
         if (this.engineTime <= 0) {
           this.engineTime = 0;
           this.timeOut = true;
           this.timeOutSide = 'Engine';
+          this.updateCachedState();
           clearInterval(this.timerInterval);
         }
       }
@@ -144,7 +154,7 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
     this.chessboard = new Chessboard(this.boardContainer.nativeElement, {
       position: this.game.fen(),
       assetsUrl: '/assets/',
-      orientation: this.settings.side === 'white' ? COLOR.white : COLOR.black,
+      orientation: this.settings && this.settings.side === 'white' ? COLOR.white : COLOR.black,
       style: {
         cssClass: this.boardTheme,
         animationDuration: 200,
@@ -153,13 +163,13 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
 
     this.chessboard.enableMoveInput((event: any) => {
       if (event.type === INPUT_EVENT_TYPE.moveInputStarted) {
-        if (!this.isPlayerTurn()) {
+        if (!this.cachedIsPlayerTurn) {
           return false; // prevent starting move if not player's turn
         }
         return true;
       }
       if (event.type === INPUT_EVENT_TYPE.validateMoveInput) {
-        if (!this.isPlayerTurn()) {
+        if (!this.cachedIsPlayerTurn) {
           return false; // prevent move visually
         }
 
@@ -172,7 +182,7 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
           if (result) {
             return true; // valid move
           }
-        } catch (e) {
+        } catch (_e) {
           return false;
         }
         return false; // invalid move
@@ -199,9 +209,31 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
         JSON.stringify({
           type: 'REQUEST_MOVE',
           fen: currentFen,
-          difficulty: this.settings.difficulty,
+          difficulty: this.settings ? this.settings.difficulty : 1500,
         }),
       );
+    }
+  }
+
+  updateCachedState() {
+    // Calling chess.js methods in angular templates causes massive performance issues
+    // because change detection evaluates them constantly.
+    // By caching them here when a move happens, we keep performance snappy.
+
+    const over = this.resigned || this.timeOut || this.game.isGameOver();
+    this.cachedIsGameOver = over;
+    this.cachedIsCheckmate = this.game.isCheckmate();
+    this.cachedIsDraw = this.game.isDraw();
+
+    if (over) {
+      this.cachedIsPlayerTurn = false;
+      this.cachedIsEngineTurn = false;
+    } else {
+      const turnW = this.game.turn() === 'w';
+      const playerW = this.settings && this.settings.side === 'white';
+
+      this.cachedIsPlayerTurn = (turnW && playerW) || (!turnW && !playerW);
+      this.cachedIsEngineTurn = !this.cachedIsPlayerTurn;
     }
   }
 
@@ -210,8 +242,10 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
       const result = this.game.move(move);
       this.moveHistory.push({ ...result, fenAfter: this.game.fen() });
 
+      this.updateCachedState();
+
       // Add increment
-      if (this.moveHistory.length > (this.settings.side === 'black' ? 1 : 0)) {
+      if (this.moveHistory.length > (this.settings && this.settings.side === 'black' ? 1 : 0)) {
         if (isEngine) {
           this.engineTime += this.increment;
         } else {
@@ -223,51 +257,19 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
         this.chessboard.setPosition(this.game.fen(), true);
       }
 
-      if (!isEngine && !this.game.isGameOver()) {
+      if (!isEngine && !this.cachedIsGameOver) {
         this.requestEngineMove(this.game.fen());
       }
 
       return result;
-    } catch (e) {
+    } catch (_e) {
       return null;
     }
   }
 
-  private _cachedIsGameOver: boolean = false;
-  private _lastFenForGameOver: string = '';
-
-  private _updateGameState(): void {
-    const currentFen = this.game.fen();
-    if (this._lastFenForGameOver !== currentFen) {
-      this._cachedIsGameOver = this.game.isGameOver();
-      this._lastFenForGameOver = currentFen;
-    }
-  }
-
-  isPlayerTurn(): boolean {
-    if (this.isGameOver() || this.timeOut) return false;
-    if (
-      (this.settings.side === 'white' && this.game.turn() === 'b') ||
-      (this.settings.side === 'black' && this.game.turn() === 'w')
-    ) {
-      return false;
-    }
-    return true;
-  }
-
-  isEngineTurn(): boolean {
-    if (this.isGameOver() || this.timeOut) return false;
-    return !this.isPlayerTurn();
-  }
-
   resign() {
     this.resigned = true;
-  }
-
-  isGameOver(): boolean {
-    if (this.resigned || this.timeOut) return true;
-    this._updateGameState();
-    return this._cachedIsGameOver;
+    this.updateCachedState();
   }
 
   onThemeChange() {
