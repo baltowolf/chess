@@ -62,6 +62,6 @@ describe('Analysis', () => {
     expect(component.getCurrentFen()).toBe('rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2');
     expect(component.getPreviousFen()).toBe('rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1');
     expect(component.getMoveNumber()).toBe(1);
-    expect(component.getIsWhiteToMove()).toBe(true); // e5 is black's move (index 1)
+    expect(component.getIsWhiteToMove()).toBe(false); // e5 is black's move (index 1)
   });
 });

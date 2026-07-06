@@ -64,7 +64,7 @@ public class ChessWebSocketHandler extends TextWebSocketHandler {
                 int evalBefore = stockfishService.getEvaluation(fenBefore);
                 int evalAfter = stockfishService.getEvaluation(fenAfter);
 
-                String explanation = aiExplanationService.getExplanation(move, evalBefore, evalAfter, isWhiteToMove);
+                String explanation = aiExplanationService.getExplanation(fenBefore, move, evalBefore, evalAfter, isWhiteToMove);
 
                 ObjectNode response = mapper.createObjectNode();
                 response.put("type", "ANALYSIS_RESULT");
