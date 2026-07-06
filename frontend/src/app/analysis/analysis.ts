@@ -8,6 +8,8 @@ import {
   ElementRef,
   OnDestroy,
   AfterViewInit,
+  ChangeDetectorRef,
+  NgZone
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -36,6 +38,8 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
 
   @Input() history: any[] = [];
   @Output() goBack = new EventEmitter<void>();
+
+  constructor(private cdr: ChangeDetectorRef, private ngZone: NgZone) {}
 
   @ViewChild('boardContainer', { static: false }) boardContainer!: ElementRef;
   chessboard: any;
@@ -133,20 +137,26 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
     };
 
     this.ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'ANALYSIS_RESULT') {
-        this.explanation = data.explanation;
-        this.isLoading = false;
-        this.ws?.close();
-        this.ws = null;
-      }
+      this.ngZone.run(() => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'ANALYSIS_RESULT') {
+          this.explanation = data.explanation;
+          this.isLoading = false;
+          this.ws?.close();
+          this.ws = null;
+          this.cdr.detectChanges();
+        }
+      });
     };
 
     this.ws.onerror = () => {
-      this.explanation = 'Failed to load analysis.';
-      this.isLoading = false;
-      this.ws?.close();
-      this.ws = null;
+      this.ngZone.run(() => {
+        this.explanation = 'Failed to load analysis.';
+        this.isLoading = false;
+        this.ws?.close();
+        this.ws = null;
+        this.cdr.detectChanges();
+      });
     };
   }
 
