@@ -18,17 +18,17 @@ public class AiExplanationService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public String getExplanation(String move, int evalBefore, int evalAfter, boolean isWhiteToMove) {
+    public String getExplanation(String fenBefore, String move, int evalBefore, int evalAfter, boolean isWhiteToMove) {
         try {
             double before = evalBefore / 100.0;
             double after = evalAfter / 100.0;
             String side = isWhiteToMove ? "Белые" : "Черные";
 
-            String prompt = String.format("Вы - эксперт по шахматам. Сторона '%s' сделала ход '%s'. " +
+            String prompt = String.format("Вы - эксперт по шахматам. Позиция (FEN) до хода: %s. Сторона '%s' сделала ход '%s'. " +
                     "Оценка движка до хода была %.2f, а после стала %.2f. " +
                     "Объясните этот ход на русском языке. Подобно шахматному тренеру объясни суть ошибки, если ход плохой" +
                             " или почему ход сильный, если ход хороший. Текст объяснения не должен превышать 30 слов.",
-                    side, move, before, after);
+                    fenBefore, side, move, before, after);
 
             ObjectNode requestBody = objectMapper.createObjectNode();
             ArrayNode messages = requestBody.putArray("messages");

@@ -95,7 +95,7 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   }
 
   getIsWhiteToMove() {
-    return this.currentMoveIndex >= 0 ? this.currentMoveIndex % 2 !== 0 : true;
+    return this.currentMoveIndex >= 0 ? this.currentMoveIndex % 2 === 0 : true;
   }
 
   updateBoard() {

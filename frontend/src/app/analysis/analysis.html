@@ -42,7 +42,7 @@
         <lucide-icon [img]="ChevronLeft" class="w-6 h-6"></lucide-icon>
       </button>
       <div class="font-mono text-lg font-bold min-w-[3rem] text-center">
-        {{ currentMoveIndex >= 0 ? getMoveNumber() + (getIsWhiteToMove() ? '...' : '.') : '-' }}
+        {{ currentMoveIndex >= 0 ? getMoveNumber() + (getIsWhiteToMove() ? '.' : '...') : '-' }}
       </div>
       <button
         (click)="goToNext()"
