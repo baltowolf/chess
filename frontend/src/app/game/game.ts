@@ -10,6 +10,7 @@ import {
   ElementRef,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { NgZone, ChangeDetectorRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Chess } from 'chess.js';
 import { getWebSocketUrl } from '../../utils/config';
@@ -40,6 +41,8 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
 
   chessboard: any;
   INPUT_EVENT_TYPE: any;
+
+  constructor(private ngZone: NgZone, private cdr: ChangeDetectorRef) {}
 
   // Timers
   playerTime = 0;
@@ -111,33 +114,43 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
   }
 
   startTimer() {
-    this.timerInterval = setInterval(() => {
-      if (this.cachedIsGameOver || this.timeOut) {
-        clearInterval(this.timerInterval);
-        return;
-      }
+    this.ngZone.runOutsideAngular(() => {
+      this.timerInterval = setInterval(() => {
+        if (this.cachedIsGameOver || this.timeOut) {
+          clearInterval(this.timerInterval);
+          return;
+        }
 
-      // Check whose turn it is and decrement
-      if (this.cachedIsPlayerTurn) {
-        this.playerTime--;
-        if (this.playerTime <= 0) {
-          this.playerTime = 0;
-          this.timeOut = true;
-          this.timeOutSide = 'Player';
-          this.updateCachedState();
-          clearInterval(this.timerInterval);
+        let timeChanged = false;
+
+        // Check whose turn it is and decrement
+        if (this.cachedIsPlayerTurn) {
+          this.playerTime--;
+          timeChanged = true;
+          if (this.playerTime <= 0) {
+            this.playerTime = 0;
+            this.timeOut = true;
+            this.timeOutSide = 'Player';
+            this.ngZone.run(() => this.updateCachedState());
+            clearInterval(this.timerInterval);
+          }
+        } else if (this.cachedIsEngineTurn) {
+          this.engineTime--;
+          timeChanged = true;
+          if (this.engineTime <= 0) {
+            this.engineTime = 0;
+            this.timeOut = true;
+            this.timeOutSide = 'Engine';
+            this.ngZone.run(() => this.updateCachedState());
+            clearInterval(this.timerInterval);
+          }
         }
-      } else if (this.cachedIsEngineTurn) {
-        this.engineTime--;
-        if (this.engineTime <= 0) {
-          this.engineTime = 0;
-          this.timeOut = true;
-          this.timeOutSide = 'Engine';
-          this.updateCachedState();
-          clearInterval(this.timerInterval);
+
+        if (timeChanged) {
+          this.cdr.detectChanges();
         }
-      }
-    }, 1000);
+      }, 1000);
+    });
   }
 
   formatTime(seconds: number): string {
