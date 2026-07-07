@@ -121,34 +121,34 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
 
   startTimer() {
     this.timerInterval = setInterval(() => {
-      this.ngZone.run(() => {
-        if (this.cachedIsGameOver || this.timeOut) {
-          clearInterval(this.timerInterval);
-          return;
-        }
+      // ⚡ Bolt: Removed ngZone.run() to prevent global Angular change detection on every tick.
+      // We rely on local this.cdr.detectChanges() for better performance.
+      if (this.cachedIsGameOver || this.timeOut) {
+        clearInterval(this.timerInterval);
+        return;
+      }
 
-        // Check whose turn it is and decrement
-        if (this.cachedIsPlayerTurn) {
-          this.playerTime--;
-          if (this.playerTime <= 0) {
-            this.playerTime = 0;
-            this.timeOut = true;
-            this.timeOutSide = 'Player';
-            this.updateCachedState();
-            clearInterval(this.timerInterval);
-          }
-        } else if (this.cachedIsEngineTurn) {
-          this.engineTime--;
-          if (this.engineTime <= 0) {
-            this.engineTime = 0;
-            this.timeOut = true;
-            this.timeOutSide = 'Engine';
-            this.updateCachedState();
-            clearInterval(this.timerInterval);
-          }
+      // Check whose turn it is and decrement
+      if (this.cachedIsPlayerTurn) {
+        this.playerTime--;
+        if (this.playerTime <= 0) {
+          this.playerTime = 0;
+          this.timeOut = true;
+          this.timeOutSide = 'Player';
+          this.updateCachedState();
+          clearInterval(this.timerInterval);
         }
-        this.cdr.detectChanges();
-      });
+      } else if (this.cachedIsEngineTurn) {
+        this.engineTime--;
+        if (this.engineTime <= 0) {
+          this.engineTime = 0;
+          this.timeOut = true;
+          this.timeOutSide = 'Engine';
+          this.updateCachedState();
+          clearInterval(this.timerInterval);
+        }
+      }
+      this.cdr.detectChanges();
     }, 1000);
   }
 
@@ -286,6 +286,12 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
   resign() {
     this.resigned = true;
     this.updateCachedState();
+  }
+
+  // ⚡ Bolt: trackBy function for moveHistory *ngFor loop to improve rendering performance
+  trackMove(index: number, move: any) {
+    // If move has a fenAfter it's unique, otherwise fallback to index
+    return move.fenAfter || index;
   }
 
   onThemeChange() {

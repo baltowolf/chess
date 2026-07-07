@@ -133,7 +133,7 @@
   >
     <h3 class="font-bold text-lg mb-4 text-white">Move History</h3>
     <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-sm font-mono text-neutral-300">
-      <ng-container *ngFor="let move of moveHistory; let i = index">
+      <ng-container *ngFor="let move of moveHistory; let i = index; trackBy: trackMove">
         <ng-container *ngIf="i % 2 === 0">
           <div class="col-span-2 text-neutral-500 text-xs mt-1">{{ (i / 2) + 1 }}.</div>
           <div class="px-2 py-1 bg-neutral-700 rounded">{{ move.san }}</div>
