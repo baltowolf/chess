@@ -48,6 +48,8 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   currentMoveIndex: number = 0;
   explanation: string = '';
   isLoading: boolean = false;
+  // ⚡ Bolt: Cache for AI explanations to avoid redundant network calls
+  private explanationCache = new Map<string, string>();
 
   ngOnInit() {
     this.currentMoveIndex = this.history.length - 1;
@@ -110,17 +112,28 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
+    const currentMove = this.getCurrentMove();
+    const isWhiteToMove = this.getIsWhiteToMove();
+    const fenBefore = this.getPreviousFen();
+    const fenAfter = this.getCurrentFen();
+    const cacheKey = fenAfter; // Use FEN as a unique identifier for caching
+
+    // ⚡ Bolt: Check cache before fetching
+    if (this.explanationCache.has(cacheKey)) {
+      this.explanation = this.explanationCache.get(cacheKey)!;
+      this.isLoading = false;
+      if (this.ws) {
+        this.ws.close();
+      }
+      return;
+    }
+
     this.isLoading = true;
     this.explanation = '';
 
     if (this.ws) {
       this.ws.close();
     }
-
-    const currentMove = this.getCurrentMove();
-    const isWhiteToMove = this.getIsWhiteToMove();
-    const fenBefore = this.getPreviousFen();
-    const fenAfter = this.getCurrentFen();
 
     this.ws = new WebSocket(getWebSocketUrl());
 
@@ -140,8 +153,14 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
       this.ngZone.run(() => {
         const data = JSON.parse(event.data);
         if (data.type === 'ANALYSIS_RESULT') {
-          this.explanation = data.explanation;
-          this.isLoading = false;
+          // Verify we're still looking at the same move
+          if (this.getCurrentFen() === cacheKey) {
+             this.explanation = data.explanation;
+             this.isLoading = false;
+          }
+          // ⚡ Bolt: Cache the fetched explanation
+          this.explanationCache.set(cacheKey, data.explanation);
+
           this.ws?.close();
           this.ws = null;
           this.cdr.detectChanges();
