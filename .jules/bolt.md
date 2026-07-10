@@ -10,3 +10,7 @@
 ## 2024-05-18 - Angular List Rendering Optimization
 **Learning:** For rendering the move history array using `*ngFor`, missing a `trackBy` function causes Angular to re-render all elements when the array changes, which gets increasingly expensive as the move history grows.
 **Action:** Always add a `trackBy` function for `*ngFor` in this codebase, especially for frequently updated lists like the move history.
+
+## 2024-05-20 - WebSocket Cache Race Condition
+**Learning:** When implementing a client-side cache for WebSocket responses, if an active connection exists and the next requested data is already cached, you must explicitly close the active connection before returning the cached data. Otherwise, the pending response may arrive later and overwrite the cached data you just loaded.
+**Action:** Always clean up pending network requests/connections before returning early from a cache hit block.
