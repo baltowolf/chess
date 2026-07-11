@@ -49,6 +49,9 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   explanation: string = '';
   isLoading: boolean = false;
 
+  // Cache for explanations
+  explanationCache: Map<string, string> = new Map<string, string>();
+
   ngOnInit() {
     this.currentMoveIndex = this.history.length - 1;
     this.fetchExplanation();
@@ -110,17 +113,26 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    this.isLoading = true;
-    this.explanation = '';
-
     if (this.ws) {
       this.ws.close();
+      this.ws = null;
     }
 
     const currentMove = this.getCurrentMove();
     const isWhiteToMove = this.getIsWhiteToMove();
     const fenBefore = this.getPreviousFen();
     const fenAfter = this.getCurrentFen();
+
+    // Check cache
+    if (this.explanationCache.has(fenAfter)) {
+        this.explanation = this.explanationCache.get(fenAfter)!;
+        this.isLoading = false;
+        this.cdr.detectChanges();
+        return;
+    }
+
+    this.isLoading = true;
+    this.explanation = '';
 
     this.ws = new WebSocket(getWebSocketUrl());
 
@@ -141,6 +153,7 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
         const data = JSON.parse(event.data);
         if (data.type === 'ANALYSIS_RESULT') {
           this.explanation = data.explanation;
+          this.explanationCache.set(fenAfter, data.explanation);
           this.isLoading = false;
           this.ws?.close();
           this.ws = null;
