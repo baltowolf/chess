@@ -10,3 +10,6 @@
 ## 2024-05-18 - Angular List Rendering Optimization
 **Learning:** For rendering the move history array using `*ngFor`, missing a `trackBy` function causes Angular to re-render all elements when the array changes, which gets increasingly expensive as the move history grows.
 **Action:** Always add a `trackBy` function for `*ngFor` in this codebase, especially for frequently updated lists like the move history.
+## 2024-05-18 - chess.js FEN generation performance
+**Learning:** Creating a new `Chess` instance (`new Chess().fen()`) simply to retrieve the default starting position FEN string is unnecessarily computationally expensive (~300ms for 10k calls vs ~0.1ms for a constant string), especially when these methods (`getCurrentFen`, `getPreviousFen`) might be called frequently during rendering or analysis.
+**Action:** Use the `DEFAULT_POSITION` constant exported by `chess.js` instead of creating temporary `Chess` instances when you only need the starting position.

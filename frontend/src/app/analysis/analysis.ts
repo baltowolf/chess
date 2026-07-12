@@ -13,7 +13,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Chess } from 'chess.js';
+import { DEFAULT_POSITION } from 'chess.js';
 import {
   LucideAngularModule,
   ChevronLeft,
@@ -81,12 +81,14 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
 
   getCurrentFen() {
     const currentMove = this.getCurrentMove();
-    return currentMove ? currentMove.fenAfter : new Chess().fen();
+    // ⚡ Bolt: Use DEFAULT_POSITION constant instead of initializing a new Chess() instance for performance
+    return currentMove ? currentMove.fenAfter : DEFAULT_POSITION;
   }
 
   getPreviousFen() {
-    if (this.currentMoveIndex < 0) return new Chess().fen();
-    if (this.currentMoveIndex === 0) return new Chess().fen();
+    // ⚡ Bolt: Use DEFAULT_POSITION constant instead of initializing a new Chess() instance for performance
+    if (this.currentMoveIndex < 0) return DEFAULT_POSITION;
+    if (this.currentMoveIndex === 0) return DEFAULT_POSITION;
     return this.history[this.currentMoveIndex - 1].fenAfter;
   }
 
