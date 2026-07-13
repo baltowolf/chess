@@ -13,3 +13,7 @@
 ## 2024-05-18 - WebSocket Caching in Analysis Component
 **Learning:** Navigating through history in the Analysis board caused redundant WebSocket connections and Stockfish/DeepSeek API calls for moves that were already analyzed, significantly degrading performance. Caching the `ANALYSIS_RESULT` in the component state prevents these unnecessary network and backend roundtrips.
 **Action:** For components that fetch data based on user navigation across a finite set of states (like chess move history), implement a local cache (e.g., `Map`) to store previously fetched results and bypass the fetch logic if the result is already available.
+
+## 2024-05-18 - Full Game FEN Evaluation Bulk Request
+**Learning:** Requesting multiple FEN evaluations via Stockfish API concurrently using `parallelStream()` caused a `504 Gateway Time-out`. To prevent API rate limits and connection pooling issues, we must fetch FEN evaluations sequentially. We also switched to the highly reliable and free `https://chess-api.com/v1` for both Stockfish evaluation and best move.
+**Action:** When evaluating an entire chess game move by move on an external REST API, use sequential loops to collect `JsonNode` or evaluation data. For the LLM integration (Pollinations AI), we use a single asynchronous request containing the PGN and all evaluations to get the full-game review.

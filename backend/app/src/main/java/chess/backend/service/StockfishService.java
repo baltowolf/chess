@@ -4,11 +4,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
 
-import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class StockfishService {
@@ -16,71 +19,50 @@ public class StockfishService {
     private static final Logger log = LoggerFactory.getLogger(StockfishService.class);
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private int currentDepth = 5; // Default depth mapped from ELO
+    private int currentDepth = 5;
 
     public void setDifficulty(int elo) {
-        // Map ELO (800 - 3200) to depth (1 - 15)
-        // 800 -> 1, 3200 -> 15
         this.currentDepth = Math.max(1, Math.min(15, (elo - 800) * 14 / 2400 + 1));
         log.info("Set difficulty ELO {} to depth {}", elo, currentDepth);
     }
 
     public String getBestMove(String fen, int moveTimeMs) {
         try {
-            URI uri = UriComponentsBuilder.fromHttpUrl("https://stockfish.online/api/s/v2.php")
-                    .queryParam("fen", fen)
-                    .queryParam("depth", currentDepth)
-                    .build()
-                    .toUri();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
 
-            log.info("Calling Stockfish API for best move: {}", uri);
-            String response = restTemplate.getForObject(uri, String.class);
+            Map<String, Object> requestMap = new HashMap<>();
+            requestMap.put("fen", fen);
+            requestMap.put("depth", currentDepth);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestMap, headers);
+            String response = restTemplate.postForObject("https://chess-api.com/v1", entity, String.class);
             JsonNode root = objectMapper.readTree(response);
 
-            if (root.has("success") && root.get("success").asBoolean()) {
-                String bestmoveStr = root.get("bestmove").asText();
-                String[] parts = bestmoveStr.split("bestmove ");
-                if (parts.length > 1) {
-                    return parts[1].split(" ")[0].trim();
-                }
-            } else {
-                log.error("Stockfish API returned error or unsuccessful: {}", response);
+            if (root.has("move")) {
+                return root.get("move").asText();
             }
         } catch (Exception e) {
-            log.error("Failed to fetch best move from Stockfish API", e);
+            log.error("Failed to fetch best move", e);
         }
-        return null; // Fallback or handle error appropriately in handler
+        return null;
     }
 
-    /**
-     * Gets the evaluation in centipawns. Positive means white is better.
-     * If mate is found, returns a large centipawn value (e.g. +/- 10000).
-     */
-    public int getEvaluation(String fen) {
+    public JsonNode getEvaluation(String fen) {
         try {
-            URI uri = UriComponentsBuilder.fromHttpUrl("https://stockfish.online/api/s/v2.php")
-                    .queryParam("fen", fen)
-                    .queryParam("depth", 10) // Fixed depth for analysis
-                    .build()
-                    .toUri();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
 
-            log.info("Calling Stockfish API for evaluation: {}", uri);
-            String response = restTemplate.getForObject(uri, String.class);
-            JsonNode root = objectMapper.readTree(response);
+            Map<String, Object> requestMap = new HashMap<>();
+            requestMap.put("fen", fen);
+            requestMap.put("depth", 10);
 
-            if (root.has("success") && root.get("success").asBoolean()) {
-                if (root.has("mate") && !root.get("mate").isNull()) {
-                    int mateIn = root.get("mate").asInt();
-                    return mateIn > 0 ? 10000 - mateIn : -10000 - mateIn; // large number indicating forced mate
-                }
-                if (root.has("evaluation")) {
-                    double eval = root.get("evaluation").asDouble();
-                    return (int) (eval * 100); // convert to centipawns
-                }
-            }
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestMap, headers);
+            String response = restTemplate.postForObject("https://chess-api.com/v1", entity, String.class);
+            return objectMapper.readTree(response);
         } catch (Exception e) {
-            log.error("Failed to fetch evaluation from Stockfish API", e);
+            log.error("Failed to fetch evaluation", e);
+            return null;
         }
-        return 0;
     }
 }

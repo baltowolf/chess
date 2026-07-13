@@ -26,27 +26,20 @@ class AiExplanationServiceTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         aiExplanationService = new AiExplanationService(restTemplate);
-        ReflectionTestUtils.setField(aiExplanationService, "apiUrl", "https://chat.deepseek.com/api/v0");
+        ReflectionTestUtils.setField(aiExplanationService, "apiUrl", "https://api.test/completions");
+        ReflectionTestUtils.setField(aiExplanationService, "apiModel", "test-model");
     }
 
     @Test
-    void testGetExplanationSimulation() {
-        // 1. Mock session creation
-        String sessionJson = "{\"data\":{\"biz_data\":{\"chat_session\":{\"id\":\"test-session-id\"}}}}";
-        when(restTemplate.postForObject(eq("https://chat.deepseek.com/api/v0/chat_session/create"), ArgumentMatchers.<HttpEntity<String>>any(), eq(String.class)))
-                .thenReturn(sessionJson);
+    void testGetFullGameExplanation() {
+        String jsonResponse = "{\"choices\": [{\"message\": {\"content\": \"Test analysis\"}}]}";
 
-        // 2. Mock completion response (SSE format)
-        String sseResponse = "data: {\"v\":\"Это\"}\n" +
-                           "data: {\"v\":\" хороший\"}\n" +
-                           "data: {\"v\":\" ход\"}\n" +
-                           "data: {\"v\":\"!\"}";
-        when(restTemplate.postForObject(eq("https://chat.deepseek.com/api/v0/chat/completion"), ArgumentMatchers.<HttpEntity<String>>any(), eq(String.class)))
-                .thenReturn(sseResponse);
+        when(restTemplate.postForObject(eq("https://api.test/completions"), ArgumentMatchers.<HttpEntity<String>>any(), eq(String.class)))
+                .thenReturn(jsonResponse);
 
-        String result = aiExplanationService.getExplanation("fen", "e4", 0, 50, true);
+        String result = aiExplanationService.getFullGameExplanation("pgn", "[10, 20]");
         
-        assertEquals("Это хороший ход!", result);
+        assertEquals("Test analysis", result);
     }
 
     @Test
@@ -54,9 +47,9 @@ class AiExplanationServiceTest {
         when(restTemplate.postForObject(anyString(), ArgumentMatchers.any(), eq(String.class)))
                 .thenThrow(new RuntimeException("Connection refused"));
 
-        String result = aiExplanationService.getExplanation("fen", "e4", 0, 50, true);
+        String result = aiExplanationService.getFullGameExplanation("pgn", "[10, 20]");
         
         assertNotNull(result);
-        assertEquals("Ход в рамках стратегии, поддерживает баланс сил в позиции.", result);
+        assertEquals("Failed to analyze the game. Please try again later.", result);
     }
 }

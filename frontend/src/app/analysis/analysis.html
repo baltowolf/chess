@@ -1,102 +1,125 @@
-<div
-  class="flex flex-col md:flex-row items-start justify-center gap-8 w-full max-w-6xl mx-auto p-4"
->
-  <!-- Left Sidebar: Controls -->
-  <div class="w-full md:w-64 bg-neutral-800 p-4 rounded-xl border border-neutral-700">
-    <h3 class="font-bold text-xl mb-6 text-white border-b border-neutral-700 pb-2">
-      Analysis Board
-    </h3>
-
-    <div class="space-y-4">
-      <button
-        (click)="goBack.emit()"
-        class="w-full py-2 bg-neutral-700 hover:bg-neutral-600 rounded text-white transition-colors"
-      >
-        Exit Analysis
-      </button>
-    </div>
-  </div>
-
-  <!-- Main Board -->
-  <div class="w-full max-w-[600px] flex-shrink-0">
-    <div class="rounded overflow-hidden shadow-2xl">
-      <div #boardContainer style="width: 100%; height: auto"></div>
-    </div>
-
-    <!-- Playback Controls -->
-    <div
-      class="flex items-center justify-center gap-4 mt-6 bg-neutral-800 p-3 rounded-lg border border-neutral-700"
-    >
-      <button
-        (click)="goToStart()"
-        [disabled]="currentMoveIndex === -1"
-        class="p-2 hover:bg-neutral-700 rounded text-neutral-300 disabled:opacity-30"
-      >
-        <lucide-icon [img]="RotateCcw" class="w-5 h-5"></lucide-icon>
-      </button>
-      <button
-        (click)="goToPrev()"
-        [disabled]="currentMoveIndex === -1"
-        class="p-2 hover:bg-neutral-700 rounded text-neutral-300 disabled:opacity-30"
-      >
-        <lucide-icon [img]="ChevronLeft" class="w-6 h-6"></lucide-icon>
-      </button>
-      <div class="font-mono text-lg font-bold min-w-[3rem] text-center">
-        {{ currentMoveIndex >= 0 ? getMoveNumber() + (getIsWhiteToMove() ? '.' : '...') : '-' }}
+<div class="flex flex-col md:flex-row h-full w-full max-w-6xl mx-auto gap-6 p-4">
+    <!-- Left Column: Back button -->
+    <div class="w-full md:w-64 flex flex-col gap-4">
+      <div class="bg-gray-800 rounded-xl p-4 shadow-lg border border-gray-700/50">
+        <h2 class="text-xl font-bold text-white mb-4 text-center">Analysis Board</h2>
+        <button
+          (click)="goBack.emit()"
+          class="w-full py-3 px-4 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 font-medium"
+        >
+          Exit Analysis
+        </button>
       </div>
-      <button
-        (click)="goToNext()"
-        [disabled]="currentMoveIndex === history.length - 1"
-        class="p-2 hover:bg-neutral-700 rounded text-neutral-300 disabled:opacity-30"
-      >
-        <lucide-icon [img]="ChevronRight" class="w-6 h-6"></lucide-icon>
-      </button>
-      <button
-        (click)="goToEnd()"
-        [disabled]="currentMoveIndex === history.length - 1"
-        class="p-2 hover:bg-neutral-700 rounded text-neutral-300 disabled:opacity-30 relative w-10"
-      >
-        <lucide-icon [img]="ChevronRight" class="w-6 h-6 absolute left-1 top-2"></lucide-icon>
-        <lucide-icon [img]="ChevronRight" class="w-6 h-6 absolute left-3 top-2"></lucide-icon>
-      </button>
     </div>
-  </div>
 
-  <!-- Right Sidebar: AI Analysis -->
-  <div
-    class="w-full md:w-80 bg-neutral-800 p-4 rounded-xl border border-neutral-700 flex flex-col h-[600px]"
-  >
-    <h3 class="font-bold text-lg mb-4 text-white flex items-center gap-2">
-      <lucide-icon [img]="MessageSquare" class="w-5 h-5 text-blue-400"></lucide-icon>
-      AI Coach
-    </h3>
+    <!-- Middle Column: Board and Controls -->
+    <div class="flex-1 flex flex-col items-center gap-4">
+      <!-- Board -->
+      <div class="w-full max-w-[600px] aspect-square rounded-xl overflow-hidden shadow-2xl relative">
+        <div #boardContainer class="w-full h-full"></div>
+      </div>
 
-    <div class="flex-grow overflow-y-auto bg-neutral-900 rounded p-4 border border-neutral-700">
-      <ng-container *ngIf="currentMoveIndex < 0; else analysisView">
-        <p class="text-neutral-400 italic">Game starting position.</p>
-      </ng-container>
+      <!-- Controls -->
+      <div class="w-full max-w-[600px] bg-gray-800 rounded-xl p-2 flex justify-center items-center gap-2 shadow-lg border border-gray-700/50">
+        <button
+          (click)="goToStart()"
+          [disabled]="currentMoveIndex < 0"
+          class="p-3 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:hover:bg-transparent transition-all duration-200"
+          title="Go to Start"
+        >
+          <lucide-icon [img]="RotateCcw" class="w-5 h-5"></lucide-icon>
+        </button>
+        <button
+          (click)="goToPrev()"
+          [disabled]="currentMoveIndex < 0"
+          class="p-3 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:hover:bg-transparent transition-all duration-200"
+          title="Previous Move"
+        >
+          <lucide-icon [img]="ChevronLeft" class="w-6 h-6"></lucide-icon>
+        </button>
 
-      <ng-template #analysisView>
-        <div>
-          <div class="font-bold text-lg mb-2 text-white">Move: {{ getCurrentMove()?.san }}</div>
-
-          <div
-            *ngIf="isLoading; else explanationView"
-            class="flex items-center gap-2 text-neutral-400 mt-4"
-          >
-            <div
-              class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"
-            ></div>
-            Analyzing move...
-          </div>
-
-          <ng-template #explanationView>
-            <div class="text-neutral-200 mt-4 leading-relaxed">
-              {{ explanation }}
-            </div>
-          </ng-template>
+        <div class="px-6 font-mono font-bold text-lg text-white min-w-[5rem] text-center">
+          <span *ngIf="currentMoveIndex >= 0">
+            {{ getMoveNumber() }}<span *ngIf="!getIsWhiteToMove()">...</span><span *ngIf="getIsWhiteToMove()">.</span>
+          </span>
+          <span *ngIf="currentMoveIndex < 0">-</span>
         </div>
-      </ng-template>
+
+        <button
+          (click)="goToNext()"
+          [disabled]="currentMoveIndex >= history.length - 1"
+          class="p-3 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:hover:bg-transparent transition-all duration-200"
+          title="Next Move"
+        >
+          <lucide-icon [img]="ChevronRight" class="w-6 h-6"></lucide-icon>
+        </button>
+        <button
+          (click)="goToEnd()"
+          [disabled]="currentMoveIndex >= history.length - 1"
+          class="p-3 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:hover:bg-transparent transition-all duration-200"
+          title="Go to End"
+        >
+          <div class="flex -space-x-2">
+            <lucide-icon [img]="ChevronRight" class="w-5 h-5"></lucide-icon>
+            <lucide-icon [img]="ChevronRight" class="w-5 h-5"></lucide-icon>
+          </div>
+        </button>
+      </div>
+
+      <!-- Evaluation Chart -->
+      <div class="w-full max-w-[600px] h-[100px] bg-gray-800 rounded-xl overflow-hidden shadow-lg border border-gray-700/50 cursor-pointer relative" (click)="onChartClick($event)">
+         <svg #chartSvg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 600 100" class="w-full h-full block relative z-10">
+            <!-- Centerline -->
+            <line x1="0" y1="50" x2="600" y2="50" stroke="#4a5568" stroke-width="1" />
+            <!-- Advantage path -->
+            <path [attr.d]="chartPoints" fill="rgba(66, 153, 225, 0.5)" stroke="#3182ce" stroke-width="2" />
+
+            <!-- Current move indicator -->
+            <line *ngIf="evaluations.length > 0 && currentMoveIndex >= -1"
+                  [attr.x1]="((currentMoveIndex + 1) / Math.max(1, evaluations.length - 1)) * 600"
+                  y1="0"
+                  [attr.x2]="((currentMoveIndex + 1) / Math.max(1, evaluations.length - 1)) * 600"
+                  y2="100"
+                  stroke="#fc8181"
+                  stroke-width="2" />
+         </svg>
+      </div>
+    </div>
+
+    <!-- Right Column: AI Analysis -->
+    <div class="w-full md:w-80 flex flex-col gap-4">
+      <div class="bg-gray-800 rounded-xl p-5 shadow-lg border border-gray-700/50 flex-1 flex flex-col min-h-[400px]">
+        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-gray-700">
+          <div class="p-2 bg-blue-500/10 rounded-lg">
+            <lucide-icon [img]="MessageSquare" class="w-5 h-5 text-blue-400"></lucide-icon>
+          </div>
+          <h3 class="text-lg font-bold text-white">AI Coach</h3>
+        </div>
+
+        <!-- Loading State -->
+        <div *ngIf="isLoading" class="flex-1 flex flex-col items-center justify-center gap-4 text-gray-400">
+          <div class="w-8 h-8 border-4 border-gray-600 border-t-blue-500 rounded-full animate-spin"></div>
+          <p class="text-sm font-medium animate-pulse">Analyzing game...</p>
+        </div>
+
+        <!-- Result State -->
+        <div *ngIf="!isLoading" class="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+          <div class="bg-gray-900/50 rounded-lg p-4 mb-4 border border-gray-700/50 relative group">
+
+            <!-- Move Info -->
+            <div *ngIf="currentMoveIndex >= 0">
+                <h4 class="text-sm font-bold text-gray-300 mb-2 border-b border-gray-700 pb-2">
+                    Move: {{ history[currentMoveIndex]?.san }}
+                </h4>
+            </div>
+
+            <!-- Full Game Summary -->
+            <div class="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+              {{ gameAnalysis }}
+            </div>
+
+          </div>
+        </div>
+      </div>
     </div>
   </div>
-</div>
