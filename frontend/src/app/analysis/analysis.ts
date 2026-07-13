@@ -48,8 +48,9 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   currentMoveIndex: number = 0;
   explanation: string = '';
   isLoading: boolean = false;
-  // ⚡ Bolt: Cache for AI explanations to avoid redundant network calls
-  private explanationCache = new Map<string, string>();
+
+  // ⚡ Bolt: Cache explanations to prevent redundant backend/AI calls when stepping back and forth
+  explanationCache: Map<string, string> = new Map();
 
   ngOnInit() {
     this.currentMoveIndex = this.history.length - 1;
@@ -116,7 +117,7 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
     const isWhiteToMove = this.getIsWhiteToMove();
     const fenBefore = this.getPreviousFen();
     const fenAfter = this.getCurrentFen();
-    const cacheKey = fenAfter; // Use FEN as a unique identifier for caching
+    const cacheKey = fenAfter;
 
     // ⚡ Bolt: Check cache before fetching
     if (this.explanationCache.has(cacheKey)) {
@@ -158,9 +159,8 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
              this.explanation = data.explanation;
              this.isLoading = false;
           }
-          // ⚡ Bolt: Cache the fetched explanation
+          // ⚡ Bolt: Store in cache
           this.explanationCache.set(cacheKey, data.explanation);
-
           this.ws?.close();
           this.ws = null;
           this.cdr.detectChanges();
