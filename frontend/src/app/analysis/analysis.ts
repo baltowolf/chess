@@ -13,7 +13,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Chess } from 'chess.js';
+import { DEFAULT_POSITION } from 'chess.js';
 import {
   LucideAngularModule,
   ChevronLeft,
@@ -48,6 +48,7 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   currentMoveIndex: number = 0;
   explanation: string = '';
   isLoading: boolean = false;
+  explanationCache = new Map<string, string>();
 
   ngOnInit() {
     this.currentMoveIndex = this.history.length - 1;
@@ -81,12 +82,12 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
 
   getCurrentFen() {
     const currentMove = this.getCurrentMove();
-    return currentMove ? currentMove.fenAfter : new Chess().fen();
+    return currentMove ? currentMove.fenAfter : DEFAULT_POSITION;
   }
 
   getPreviousFen() {
-    if (this.currentMoveIndex < 0) return new Chess().fen();
-    if (this.currentMoveIndex === 0) return new Chess().fen();
+    if (this.currentMoveIndex < 0) return DEFAULT_POSITION;
+    if (this.currentMoveIndex === 0) return DEFAULT_POSITION;
     return this.history[this.currentMoveIndex - 1].fenAfter;
   }
 
@@ -115,12 +116,20 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
 
     if (this.ws) {
       this.ws.close();
+      this.ws = null;
     }
 
     const currentMove = this.getCurrentMove();
     const isWhiteToMove = this.getIsWhiteToMove();
     const fenBefore = this.getPreviousFen();
     const fenAfter = this.getCurrentFen();
+
+    if (this.explanationCache.has(fenAfter)) {
+      this.explanation = this.explanationCache.get(fenAfter)!;
+      this.isLoading = false;
+      this.cdr.detectChanges();
+      return;
+    }
 
     this.ws = new WebSocket(getWebSocketUrl());
 
@@ -140,6 +149,7 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
       this.ngZone.run(() => {
         const data = JSON.parse(event.data);
         if (data.type === 'ANALYSIS_RESULT') {
+          this.explanationCache.set(fenAfter, data.explanation);
           this.explanation = data.explanation;
           this.isLoading = false;
           this.ws?.close();
