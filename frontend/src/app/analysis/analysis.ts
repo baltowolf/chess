@@ -49,6 +49,9 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   explanation: string = '';
   isLoading: boolean = false;
 
+  // ⚡ Bolt: Cache explanations to prevent redundant backend/AI calls when stepping back and forth
+  explanationCache: Map<number, string> = new Map();
+
   ngOnInit() {
     this.currentMoveIndex = this.history.length - 1;
     this.fetchExplanation();
@@ -110,6 +113,13 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
+    // ⚡ Bolt: Check cache before fetching
+    if (this.explanationCache.has(this.currentMoveIndex)) {
+      this.explanation = this.explanationCache.get(this.currentMoveIndex)!;
+      this.isLoading = false;
+      return;
+    }
+
     this.isLoading = true;
     this.explanation = '';
 
@@ -141,6 +151,8 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
         const data = JSON.parse(event.data);
         if (data.type === 'ANALYSIS_RESULT') {
           this.explanation = data.explanation;
+          // ⚡ Bolt: Store in cache
+          this.explanationCache.set(this.currentMoveIndex, data.explanation);
           this.isLoading = false;
           this.ws?.close();
           this.ws = null;
