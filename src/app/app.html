@@ -1,0 +1,17 @@
+<div class="min-h-screen bg-neutral-900 text-white w-full">
+  <ng-container *ngIf="gameState() === 'setup'">
+    <app-home (startGame)="handleStartGame($event)"></app-home>
+  </ng-container>
+
+  <ng-container *ngIf="gameState() === 'playing' && gameSettings()">
+    <app-game
+      [settings]="gameSettings()"
+      (goBack)="goBackToSetup()"
+      (analyze)="handleAnalyze($event)"
+    ></app-game>
+  </ng-container>
+
+  <ng-container *ngIf="gameState() === 'analysis'">
+    <app-analysis [history]="gameHistory()" (goBack)="goBackToSetup()"></app-analysis>
+  </ng-container>
+</div>

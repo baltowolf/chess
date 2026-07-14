@@ -1,0 +1,4 @@
+@import 'cm-chessboard/assets/chessboard.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

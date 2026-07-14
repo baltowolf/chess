@@ -1,0 +1,131 @@
+<div class="flex flex-col md:flex-row h-full w-full max-w-6xl mx-auto gap-6 p-4">
+    <!-- Left Column: Back button -->
+    <div class="w-full md:w-64 flex flex-col gap-4">
+      <div class="bg-gray-800 rounded-xl p-4 shadow-lg border border-gray-700/50">
+        <h2 class="text-xl font-bold text-white mb-4 text-center">Analysis Board</h2>
+        <button
+          (click)="goBack.emit()"
+          class="w-full py-3 px-4 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 font-medium"
+        >
+          Exit Analysis
+        </button>
+      </div>
+    </div>
+
+    <!-- Middle Column: Board and Controls -->
+    <div class="flex-1 flex flex-col items-center gap-4">
+      <!-- Board -->
+      <div class="w-full max-w-[600px] aspect-square rounded-xl overflow-hidden shadow-2xl relative">
+        <div #boardContainer class="w-full h-full"></div>
+      </div>
+
+      <!-- Controls -->
+      <div class="w-full max-w-[600px] bg-gray-800 rounded-xl p-2 flex justify-center items-center gap-2 shadow-lg border border-gray-700/50">
+        <button
+          (click)="goToStart()"
+          [disabled]="currentMoveIndex < 0"
+          class="p-3 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:hover:bg-transparent transition-all duration-200"
+          title="Go to Start"
+        >
+          <lucide-icon [img]="RotateCcw" class="w-5 h-5"></lucide-icon>
+        </button>
+        <button
+          (click)="goToPrev()"
+          [disabled]="currentMoveIndex < 0"
+          class="p-3 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:hover:bg-transparent transition-all duration-200"
+          title="Previous Move"
+        >
+          <lucide-icon [img]="ChevronLeft" class="w-6 h-6"></lucide-icon>
+        </button>
+
+        <div class="px-6 font-mono font-bold text-lg text-white min-w-[5rem] text-center">
+          <span *ngIf="currentMoveIndex >= 0">
+            {{ getMoveNumber() }}<span *ngIf="!getIsWhiteToMove()">...</span><span *ngIf="getIsWhiteToMove()">.</span>
+          </span>
+          <span *ngIf="currentMoveIndex < 0">-</span>
+        </div>
+
+        <button
+          (click)="goToNext()"
+          [disabled]="currentMoveIndex >= history.length - 1"
+          class="p-3 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:hover:bg-transparent transition-all duration-200"
+          title="Next Move"
+        >
+          <lucide-icon [img]="ChevronRight" class="w-6 h-6"></lucide-icon>
+        </button>
+        <button
+          (click)="goToEnd()"
+          [disabled]="currentMoveIndex >= history.length - 1"
+          class="p-3 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:hover:bg-transparent transition-all duration-200"
+          title="Go to End"
+        >
+          <div class="flex -space-x-2">
+            <lucide-icon [img]="ChevronRight" class="w-5 h-5"></lucide-icon>
+            <lucide-icon [img]="ChevronRight" class="w-5 h-5"></lucide-icon>
+          </div>
+        </button>
+      </div>
+
+      <!-- Evaluation Chart -->
+      <div class="w-full max-w-[600px] h-[200px] bg-gray-800 rounded-xl overflow-hidden shadow-lg border border-gray-700/50 cursor-pointer relative" (click)="onChartClick($event)">
+         <svg #chartSvg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 600 200" class="w-full h-full block relative z-10">
+            <!-- Centerline -->
+            <line x1="0" y1="100" x2="600" y2="100" stroke="#4a5568" stroke-width="1" />
+            <!-- Advantage path -->
+            <path [attr.d]="chartPoints" fill="rgba(66, 153, 225, 0.5)" stroke="#3182ce" stroke-width="2" />
+
+            <!-- Current move indicator -->
+            <line *ngIf="evaluations.length > 0 && currentMoveIndex >= -1"
+                  [attr.x1]="((currentMoveIndex + 1) / Math.max(1, evaluations.length - 1)) * 600"
+                  y1="0"
+                  [attr.x2]="((currentMoveIndex + 1) / Math.max(1, evaluations.length - 1)) * 600"
+                  y2="200"
+                  stroke="#fc8181"
+                  stroke-width="2" />
+         </svg>
+         
+         <div class="absolute top-2 left-2 px-2 py-1 bg-gray-900/80 rounded font-mono font-bold text-white z-20 shadow text-sm border border-gray-700/50">
+           {{ getCurrentEvalString() || '...' }}
+         </div>
+      </div>
+    </div>
+
+    <!-- Right Column: AI Analysis -->
+    <div class="w-full md:w-80 flex flex-col gap-4">
+      <div class="bg-gray-800 rounded-xl p-5 shadow-lg border border-gray-700/50 flex-1 flex flex-col min-h-[400px]">
+        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-gray-700">
+          <div class="p-2 bg-blue-500/10 rounded-lg">
+            <lucide-icon [img]="MessageSquare" class="w-5 h-5 text-blue-400"></lucide-icon>
+          </div>
+          <h3 class="text-lg font-bold text-white">AI Coach</h3>
+        </div>
+
+        <!-- Loading State -->
+        <div *ngIf="isLoading" class="flex-1 flex flex-col items-center justify-center gap-4 text-gray-400">
+          <div class="w-8 h-8 border-4 border-gray-600 border-t-blue-500 rounded-full animate-spin"></div>
+          <p class="text-sm font-medium animate-pulse">
+            Analyzing game... {{ getAnalyzedCount() }} / {{ history.length + 1 }}
+          </p>
+        </div>
+
+        <!-- Result State -->
+        <div *ngIf="!isLoading" class="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+          <div class="bg-gray-900/50 rounded-lg p-4 mb-4 border border-gray-700/50 relative group">
+
+            <!-- Move Info -->
+            <div *ngIf="currentMoveIndex >= 0">
+                <h4 class="text-sm font-bold text-gray-300 mb-2 border-b border-gray-700 pb-2">
+                    Move: {{ history[currentMoveIndex]?.san }}
+                </h4>
+            </div>
+
+            <!-- Full Game Summary -->
+            <div class="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+              {{ gameAnalysis }}
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
