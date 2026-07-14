@@ -2,16 +2,14 @@ package chess.backend.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 @Service
 public class StockfishService {
@@ -28,19 +26,18 @@ public class StockfishService {
 
     public String getBestMove(String fen, int moveTimeMs) {
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
+            String encodedFen = URLEncoder.encode(fen, StandardCharsets.UTF_8.toString());
+            String url = "https://stockfish.online/api/s/v2.php?fen=" + encodedFen + "&depth=" + currentDepth;
 
-            Map<String, Object> requestMap = new HashMap<>();
-            requestMap.put("fen", fen);
-            requestMap.put("depth", currentDepth);
-
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestMap, headers);
-            String response = restTemplate.postForObject("https://chess-api.com/v1", entity, String.class);
+            String response = restTemplate.getForObject(url, String.class);
             JsonNode root = objectMapper.readTree(response);
 
-            if (root.has("move")) {
-                return root.get("move").asText();
+            if (root.has("bestmove")) {
+                String bestMoveStr = root.get("bestmove").asText();
+                String[] parts = bestMoveStr.split(" ");
+                if (parts.length > 1) {
+                    return parts[1];
+                }
             }
         } catch (Exception e) {
             log.error("Failed to fetch best move", e);
@@ -50,16 +47,28 @@ public class StockfishService {
 
     public JsonNode getEvaluation(String fen) {
         try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
+            String encodedFen = URLEncoder.encode(fen, StandardCharsets.UTF_8.toString());
+            String url = "https://stockfish.online/api/s/v2.php?fen=" + encodedFen + "&depth=10";
 
-            Map<String, Object> requestMap = new HashMap<>();
-            requestMap.put("fen", fen);
-            requestMap.put("depth", 10);
+            String response = restTemplate.getForObject(url, String.class);
+            JsonNode root = objectMapper.readTree(response);
 
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestMap, headers);
-            String response = restTemplate.postForObject("https://chess-api.com/v1", entity, String.class);
-            return objectMapper.readTree(response);
+            ObjectNode mapped = objectMapper.createObjectNode();
+
+            if (root.has("evaluation") && !root.get("evaluation").isNull()) {
+                mapped.put("eval", root.get("evaluation").asDouble());
+            }
+            if (root.has("mate") && !root.get("mate").isNull()) {
+                mapped.put("mate", root.get("mate").asInt());
+            }
+            if (root.has("bestmove") && !root.get("bestmove").isNull()) {
+                String bm = root.get("bestmove").asText();
+                String[] parts = bm.split(" ");
+                if (parts.length > 1) {
+                    mapped.put("move", parts[1]);
+                }
+            }
+            return mapped;
         } catch (Exception e) {
             log.error("Failed to fetch evaluation", e);
             return null;

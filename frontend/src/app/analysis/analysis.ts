@@ -13,7 +13,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Chess } from 'chess.js';
+import { Chess, DEFAULT_POSITION } from 'chess.js';
 import {
   LucideAngularModule,
   ChevronLeft,
@@ -102,12 +102,12 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
 
   getCurrentFen() {
     const currentMove = this.getCurrentMove();
-    return currentMove ? currentMove.fenAfter : new Chess().fen();
+    return currentMove ? currentMove.fenAfter : DEFAULT_POSITION;
   }
 
   getPreviousFen() {
-    if (this.currentMoveIndex < 0) return new Chess().fen();
-    if (this.currentMoveIndex === 0) return new Chess().fen();
+    if (this.currentMoveIndex < 0) return DEFAULT_POSITION;
+    if (this.currentMoveIndex === 0) return DEFAULT_POSITION;
     return this.history[this.currentMoveIndex - 1].fenAfter;
   }
 
@@ -160,7 +160,7 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
       const pgn = chess.pgn();
 
       // Gather all FENs
-      const fens = [new Chess().fen(), ...this.history.map(m => m.fenAfter)];
+      const fens = [DEFAULT_POSITION, ...this.history.map(m => m.fenAfter)];
 
       this.ws?.send(
         JSON.stringify({
