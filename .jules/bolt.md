@@ -13,3 +13,6 @@
 ## 2024-05-18 - WebSocket Caching in Analysis Component
 **Learning:** Navigating through history in the Analysis board caused redundant WebSocket connections and Stockfish/DeepSeek API calls for moves that were already analyzed, significantly degrading performance. Caching the `ANALYSIS_RESULT` in the component state prevents these unnecessary network and backend roundtrips.
 **Action:** For components that fetch data based on user navigation across a finite set of states (like chess move history), implement a local cache (e.g., `Map`) to store previously fetched results and bypass the fetch logic if the result is already available.
+## 2026-07-14 - Avoiding object instantiation in Angular getters
+**Learning:** Instantiating heavy objects like `new Chess()` directly inside Angular component getters (e.g. `getCurrentFen()`) causes massive performance overhead because these getters are repeatedly evaluated during Angular's change detection cycles.
+**Action:** When needing default states or simple strings like the starting FEN, use static constants like `DEFAULT_POSITION` from the `chess.js` library instead of initializing full class instances.
