@@ -21,6 +21,8 @@ import {
   RotateCcw,
   MessageSquare,
 } from 'lucide-angular';
+import { marked } from 'marked';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { getWebSocketUrl } from '../../utils/config';
 
 @Component({
@@ -38,9 +40,10 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   readonly Math = Math;
 
   @Input() history: any[] = [];
+  @Input() depth: number = 8;
   @Output() goBack = new EventEmitter<void>();
 
-  constructor(private cdr: ChangeDetectorRef, private ngZone: NgZone) {}
+  constructor(private cdr: ChangeDetectorRef, private ngZone: NgZone, private sanitizer: DomSanitizer) {}
 
   @ViewChild('boardContainer', { static: false }) boardContainer!: ElementRef;
   @ViewChild('chartSvg', { static: false }) chartSvg!: ElementRef;
@@ -51,7 +54,9 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   currentMoveIndex: number = 0;
   explanation: string = '';
   isLoading: boolean = true;
+  isAiLoading: boolean = false;
   gameAnalysis: any = null;
+  parsedGameAnalysis: SafeHtml | null = null;
   evaluations: any[] = [];
 
   // Chart calculation data
@@ -61,8 +66,24 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   ArrowsExt: any = null;
   ArrowTypeExt: any = null;
 
+  previewFen: string | null = null;
+  previewArrow: { from: string, to: string, color: any } | null = null;
+
   // ⚡ Bolt: Cache explanations to prevent redundant backend/AI calls when stepping back and forth
   explanationCache: Map<number, string> = new Map();
+
+  loadingFacts = [
+    "Первая шахматная доска с чередующимися светлыми и темными клетками появилась в Европе в 1090 году.",
+    "Самая длинная шахматная партия (Николич - Арсович, 1989) длилась 269 ходов.",
+    "Теоретически возможна партия в 5949 ходов.",
+    "Слово «шахматы» происходит от персидского «шах мат» («король мертв»).",
+    "В 1997 году компьютер Deep Blue победил чемпиона мира Гарри Каспарова.",
+    "Число возможных партий больше, чем количество атомов во Вселенной (число Шеннона).",
+    "Изначально ферзь мог двигаться только на одну клетку по диагонали.",
+    "Складная шахматная доска была изобретена в 1125 году."
+  ];
+  currentFactIndex = 0;
+  factTimer: any;
 
   ngOnInit() {
     this.currentMoveIndex = this.history.length - 1;
@@ -78,6 +99,7 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
     this.chessboard = new Chessboard(this.boardContainer.nativeElement, {
       position: this.getCurrentFen(),
       assetsUrl: '/assets/',
+      assetsCache: false,
       style: {
         cssClass: 'default',
       },
@@ -88,6 +110,9 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngOnDestroy() {
+    if (this.factTimer) {
+      clearInterval(this.factTimer);
+    }
     if (this.chessboard) {
       this.chessboard.destroy();
     }
@@ -101,6 +126,7 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   }
 
   getCurrentFen() {
+    if (this.previewFen) return this.previewFen;
     const currentMove = this.getCurrentMove();
     return currentMove ? currentMove.fenAfter : DEFAULT_POSITION;
   }
@@ -143,6 +169,42 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
     return '';
   }
 
+  isCurrentMoveTablebase(): boolean {
+    if (!this.evaluations || this.evaluations.length <= this.currentMoveIndex + 1) return false;
+    const evalData = this.evaluations[this.currentMoveIndex + 1];
+    return !!(evalData && evalData.isTablebase);
+  }
+
+  getArrowTypeForMove(moveIndex: number) {
+    if (moveIndex < 0 || !this.evaluations || this.evaluations.length <= moveIndex + 1) return this.ArrowTypeExt.secondary;
+    
+    const evalBefore = this.evaluations[moveIndex];
+    const evalAfter = this.evaluations[moveIndex + 1];
+    
+    if (!evalBefore || !evalAfter) return this.ArrowTypeExt.secondary;
+
+    const parseEval = (e: any, isWhiteMove: boolean) => {
+      if (e.mate !== undefined && e.mate !== null) {
+        const mate = parseInt(e.mate, 10);
+        if (mate === 0) return isWhiteMove ? -100 : 100;
+        return mate > 0 ? 100 : -100;
+      }
+      return parseFloat(e.eval || 0);
+    };
+
+    let before = parseEval(evalBefore, moveIndex % 2 === 0);
+    let after = parseEval(evalAfter, (moveIndex + 1) % 2 === 0);
+    
+    const isWhite = moveIndex % 2 === 0;
+    const evalShift = after - before; 
+    const playerLoss = isWhite ? -evalShift : evalShift;
+
+    if (playerLoss >= 2.0) return this.ArrowTypeExt.danger;
+    if (playerLoss >= 1.0) return this.ArrowTypeExt.warning;
+    if (playerLoss <= 0.2) return this.ArrowTypeExt.success;
+    return this.ArrowTypeExt.secondary;
+  }
+
   updateBoard() {
     if (this.chessboard) {
       this.chessboard.setPosition(this.getCurrentFen());
@@ -152,17 +214,18 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
         this.chessboard.removeArrows();
       }
 
-      // Draw arrow for best move if evaluation is available
-      if (this.evaluations && this.evaluations.length > this.currentMoveIndex + 1) {
-        const evalData = this.evaluations[this.currentMoveIndex + 1];
-        if (evalData && evalData.move && evalData.move.length >= 4) {
-          const bestMove = evalData.move;
-          const from = bestMove.substring(0, 2);
-          const to = bestMove.substring(2, 4);
-
-          if (this.chessboard.addArrow) {
-            this.chessboard.addArrow(this.ArrowTypeExt.default, from, to);
-          }
+      // Draw custom preview arrow or the previous move
+      if (this.previewArrow) {
+        if (this.chessboard.addArrow) {
+          console.log("Drawing preview arrow:", this.previewArrow);
+          this.chessboard.addArrow(this.previewArrow.color, this.previewArrow.from, this.previewArrow.to);
+        }
+      } else if (this.currentMoveIndex >= 0 && this.currentMoveIndex < this.history.length) {
+        const move = this.history[this.currentMoveIndex];
+        const arrowType = this.getArrowTypeForMove(this.currentMoveIndex);
+        console.log("Drawing history arrow:", move.from, move.to, arrowType);
+        if (this.chessboard.addArrow) {
+          this.chessboard.addArrow(arrowType, move.from, move.to);
         }
       }
     }
@@ -170,6 +233,17 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
 
   requestFullAnalysis() {
     this.isLoading = true;
+    this.isAiLoading = true;
+    this.currentFactIndex = 0;
+    if (this.factTimer) {
+      clearInterval(this.factTimer);
+    }
+    this.factTimer = setInterval(() => {
+      this.ngZone.run(() => {
+        this.currentFactIndex = (this.currentFactIndex + 1) % this.loadingFacts.length;
+        this.cdr.detectChanges();
+      });
+    }, 4000);
 
     if (this.ws) {
       this.ws.close();
@@ -190,7 +264,8 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
         JSON.stringify({
           type: 'ANALYZE_GAME',
           pgn: pgn,
-          fens: fens
+          fens: fens,
+          depth: this.depth
         }),
       );
     };
@@ -207,12 +282,28 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
           this.calculateChart();
           this.updateBoard(); // Redraw arrows
           this.cdr.detectChanges();
-        } else if (data.type === 'ANALYSIS_GAME_RESULT') {
-          this.gameAnalysis = data.aiExplanation;
+        } else if (data.type === 'ANALYSIS_EVALUATION_DONE') {
           this.evaluations = data.evaluations;
           this.calculateChart();
-          this.updateBoard(); // Redraw arrows with loaded data
+          this.updateBoard();
+          this.isLoading = false; // Stockfish is done, unlock the board
+          this.cdr.detectChanges();
+        } else if (data.type === 'ANALYSIS_GAME_RESULT') {
+          this.gameAnalysis = data.aiExplanation;
+          
+          Promise.resolve(marked.parse(this.gameAnalysis || '')).then(parsed => {
+            this.parsedGameAnalysis = this.sanitizer.bypassSecurityTrustHtml(parsed as string);
+            this.cdr.detectChanges();
+          });
+
+          if (data.evaluations) {
+            this.evaluations = data.evaluations;
+            this.calculateChart();
+            this.updateBoard(); // Redraw arrows with loaded data
+          }
           this.isLoading = false;
+          this.isAiLoading = false;
+          if (this.factTimer) clearInterval(this.factTimer);
           this.ws?.close();
           this.ws = null;
           this.cdr.detectChanges();
@@ -223,7 +314,10 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
     this.ws.onerror = () => {
       this.ngZone.run(() => {
         this.gameAnalysis = 'Failed to load analysis.';
+        this.parsedGameAnalysis = this.sanitizer.bypassSecurityTrustHtml('Failed to load analysis.');
         this.isLoading = false;
+        this.isAiLoading = false;
+        if (this.factTimer) clearInterval(this.factTimer);
         this.ws?.close();
         this.ws = null;
         this.cdr.detectChanges();
@@ -311,22 +405,76 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
     this.updateBoard();
   }
 
+  onAnalysisClick(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    
+    // Check if a link was clicked
+    const link = target.closest('a');
+    if (link) {
+      const href = link.getAttribute('href');
+      if (href?.startsWith('#move-')) {
+        event.preventDefault(); // Prevent scrolling to anchor
+        const plyIndex = parseInt(href.replace('#move-', '') || '-1', 10);
+        
+        if (!isNaN(plyIndex) && plyIndex >= 0 && plyIndex < this.history.length) {
+          this.previewFen = null;
+          this.previewArrow = null;
+          this.currentMoveIndex = plyIndex;
+          this.updateBoard();
+        }
+      } else if (href?.startsWith('#alt-')) {
+        event.preventDefault();
+        const parts = href.split('-');
+        if (parts.length >= 3) {
+          const plyIndex = parseInt(parts[1], 10);
+          const san = parts.slice(2).join('-');
+          if (!isNaN(plyIndex) && plyIndex >= 0 && plyIndex <= this.history.length) {
+            const chess = new Chess();
+            const fenBefore = plyIndex === 0 ? DEFAULT_POSITION : this.history[plyIndex - 1].fenAfter;
+            chess.load(fenBefore);
+            try {
+              const move = chess.move(san);
+              if (move) {
+                this.previewFen = chess.fen();
+                this.previewArrow = { from: move.from, to: move.to, color: this.ArrowTypeExt.success };
+                // Keep the currentMoveIndex at the move before the suggested one, but show the preview
+                this.currentMoveIndex = plyIndex - 1; 
+                this.updateBoard();
+              }
+            } catch (e) {
+              console.error("Invalid alternative move:", san);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  clearPreview() {
+    this.previewFen = null;
+    this.previewArrow = null;
+  }
+
   goToStart() {
+    this.clearPreview();
     this.currentMoveIndex = -1;
     this.updateBoard();
   }
 
   goToPrev() {
+    this.clearPreview();
     this.currentMoveIndex = Math.max(-1, this.currentMoveIndex - 1);
     this.updateBoard();
   }
 
   goToNext() {
+    this.clearPreview();
     this.currentMoveIndex = Math.min(this.history.length - 1, this.currentMoveIndex + 1);
     this.updateBoard();
   }
 
   goToEnd() {
+    this.clearPreview();
     this.currentMoveIndex = this.history.length - 1;
     this.updateBoard();
   }

@@ -15,6 +15,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Chess } from 'chess.js';
 import { getWebSocketUrl } from '../../utils/config';
+import { chessAudio } from './audio';
 
 @Component({
   selector: 'app-game',
@@ -25,11 +26,12 @@ import { getWebSocketUrl } from '../../utils/config';
 export class Game implements OnInit, OnDestroy, AfterViewInit {
   @Input() settings: any;
   @Output() goBack = new EventEmitter<void>();
-  @Output() analyze = new EventEmitter<any[]>();
+  @Output() analyze = new EventEmitter<{ history: any[], depth: number }>();
 
   constructor(private cdr: ChangeDetectorRef, private ngZone: NgZone) {}
 
   @ViewChild('boardContainer', { static: false }) boardContainer!: ElementRef;
+  @ViewChild('historyContainer', { static: false }) historyContainer!: ElementRef;
 
   game = new Chess();
   moveHistory: any[] = [];
@@ -40,13 +42,16 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
 
   boardTheme = 'default';
   showSettings = false;
+  analysisDepth = 8;
 
   chessboard: any;
   INPUT_EVENT_TYPE: any;
+  highlightMarkerType: any;
 
   // Timers
   playerTime = 0;
   engineTime = 0;
+  initialTime = 0;
   increment = 0;
   timerInterval: any;
 
@@ -110,10 +115,12 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
       const seconds = minutes * 60;
       this.playerTime = seconds;
       this.engineTime = seconds;
+      this.initialTime = seconds;
       this.increment = isNaN(inc) ? 0 : inc;
     } else {
       this.playerTime = 600;
       this.engineTime = 600;
+      this.initialTime = 600;
       this.increment = 0;
     }
   }
@@ -160,7 +167,9 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
   async ngAfterViewInit() {
     // Dynamically import cm-chessboard
     const { Chessboard, COLOR, INPUT_EVENT_TYPE } = await import('cm-chessboard');
+    const { Markers } = await import('cm-chessboard/src/extensions/markers/Markers.js');
     this.INPUT_EVENT_TYPE = INPUT_EVENT_TYPE;
+    this.highlightMarkerType = { class: "marker-highlight", slice: "markerSquare" };
 
     this.chessboard = new Chessboard(this.boardContainer.nativeElement, {
       position: this.game.fen(),
@@ -170,6 +179,7 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
         cssClass: this.boardTheme,
         animationDuration: 300,
       },
+      extensions: [{ class: Markers }],
     });
 
     this.chessboard.enableMoveInput((event: any) => {
@@ -257,6 +267,15 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
 
       this.updateCachedState();
 
+      // Play audio feedback
+      if (this.cachedIsCheckmate || this.game.isCheck()) {
+        chessAudio.playCheck();
+      } else if (result.captured) {
+        chessAudio.playCapture();
+      } else {
+        chessAudio.playMove();
+      }
+
       // Add increment
       if (this.moveHistory.length > (this.settings && this.settings.side === 'black' ? 1 : 0)) {
         if (isEngine) {
@@ -268,6 +287,11 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
 
       if (this.chessboard) {
         this.chessboard.setPosition(this.game.fen(), isEngine);
+        if (this.highlightMarkerType) {
+          this.chessboard.removeMarkers(this.highlightMarkerType);
+          this.chessboard.addMarker(this.highlightMarkerType, result.from);
+          this.chessboard.addMarker(this.highlightMarkerType, result.to);
+        }
       }
 
       if (!isEngine && !this.cachedIsGameOver) {
@@ -275,11 +299,44 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
       }
 
       this.cdr.detectChanges();
+      this.scrollToBottom();
 
       return result;
     } catch {
       return null;
     }
+  }
+
+  getGameResult(): string {
+    if (!this.cachedIsGameOver) {
+      return '*';
+    }
+    if (this.resigned) {
+      const playerW = this.settings && this.settings.side === 'white';
+      return playerW ? '0-1' : '1-0';
+    }
+    if (this.timeOut) {
+      return this.timeOutSide === 'Player' 
+        ? (this.settings.side === 'white' ? '0-1' : '1-0')
+        : (this.settings.side === 'white' ? '1-0' : '0-1');
+    }
+    if (this.cachedIsCheckmate) {
+      const turnW = this.game.turn() === 'w';
+      return turnW ? '0-1' : '1-0';
+    }
+    if (this.cachedIsDraw) {
+      return '½-½';
+    }
+    return '*';
+  }
+
+  scrollToBottom() {
+    setTimeout(() => {
+      if (this.historyContainer) {
+        const el = this.historyContainer.nativeElement;
+        el.scrollTop = el.scrollHeight;
+      }
+    }, 50);
   }
 
   resign() {

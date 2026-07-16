@@ -1,59 +1,42 @@
-# Frontend
+# Chess Play vs Computer App
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.18.
+Вэб-приложение для игры в шахматы с компьютером (движок Stockfish).
+Проект состоит из двух частей: Java/Spring Boot бэкенд и Angular фронтенд.
 
-## Development server
+## Особенности
+- **Игра против Stockfish**: выберите уровень сложности (ELO) и сторону (Белые, Черные, Случайно).
+- **Настройка внешнего вида**: возможность менять тему доски.
 
-To start a local development server, run:
+## Требования
+Для локального запуска вам понадобятся:
+- **Java 21**
+- **Node.js** (версия 22+)
+- **Stockfish**: Движок должен быть установлен в системе (по умолчанию ожидается по пути `C:\Users\Alex\chess\stockfish\stockfish-windows-x86-64-avx2.exe`). Для изменения пути отредактируйте `backend/app/src/main/java/chess/backend/service/StockfishService.java`.
 
-```bash
-ng serve
-```
+## Структура проекта
+- `/backend`: Серверная часть на Java, Spring Boot, Gradle. Предоставляет WebSocket (и REST) API для общения с движком Stockfish по протоколу UCI.
+- `/frontend`: Клиентская часть на Angular. Стилизация выполнена с помощью Tailwind CSS. Используются библиотеки `cm-chessboard` и `chess.js`.
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## Инструкция по запуску
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
+### 1. Запуск Бэкенда (Spring Boot)
+Перейдите в директорию `backend` и запустите приложение с помощью Gradle.
 
 ```bash
-ng build
+cd backend
+./gradlew bootRun
 ```
+Бэкенд запустится на порту `8080`.
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+### 2. Запуск Фронтенда (Angular)
+Перейдите в директорию `frontend`, установите зависимости и запустите сервер для разработки.
 
 ```bash
-ng test
+cd frontend
+npm install
+npm run serve
 ```
+Фронтенд запустится на порту `4200`. Откройте в браузере `http://localhost:4200`.
 
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+## Дополнительно
+Приложение разработано таким образом, что для игры не требуется регистрация. Наслаждайтесь классическими шахматами!

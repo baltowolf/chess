@@ -14,14 +14,16 @@ export class App {
   gameState = signal<'setup' | 'playing' | 'analysis'>('setup');
   gameSettings = signal<any>(null);
   gameHistory = signal<any[]>([]);
+  analysisDepth = signal<number>(8);
 
   handleStartGame(settings: any) {
     this.gameSettings.set(settings);
     this.gameState.set('playing');
   }
 
-  handleAnalyze(history: any[]) {
-    this.gameHistory.set(history);
+  handleAnalyze(data: { history: any[], depth: number }) {
+    this.gameHistory.set(data.history);
+    this.analysisDepth.set(data.depth);
     this.gameState.set('analysis');
   }
 

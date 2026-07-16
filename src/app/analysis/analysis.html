@@ -1,46 +1,31 @@
-<div class="flex flex-col md:flex-row h-full w-full max-w-6xl mx-auto gap-6 p-4">
-    <!-- Left Column: Back button -->
-    <div class="w-full md:w-64 flex flex-col gap-4">
-      <div class="bg-gray-800 rounded-xl p-4 shadow-lg border border-gray-700/50">
-        <h2 class="text-xl font-bold text-white mb-4 text-center">Analysis Board</h2>
-        <button
-          (click)="goBack.emit()"
-          class="w-full py-3 px-4 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 font-medium"
-        >
-          Exit Analysis
-        </button>
-      </div>
-    </div>
-
-    <!-- Middle Column: Board and Controls -->
-    <div class="flex-1 flex flex-col items-center gap-4">
-      <!-- Board -->
-      <div class="w-full max-w-[600px] aspect-square rounded-xl overflow-hidden shadow-2xl relative">
-        <div #boardContainer class="w-full h-full"></div>
-      </div>
-
-      <!-- Controls -->
-      <div class="w-full max-w-[600px] bg-gray-800 rounded-xl p-2 flex justify-center items-center gap-2 shadow-lg border border-gray-700/50">
+<div class="flex flex-col md:flex-row h-full w-full max-w-6xl mx-auto gap-4 p-4">
+  <!-- Left Column: Back button & Navigation Panel -->
+  <div class="w-full md:w-48 flex flex-col gap-3 flex-shrink-0">
+    <div class="bg-gray-800 rounded-xl p-3 shadow-lg border border-gray-700/50 flex flex-col gap-3">
+      <h2 class="text-sm font-bold text-white text-center">Analysis Board</h2>
+      
+      <!-- Navigation Panel (moved from under the board) -->
+      <div class="flex items-center justify-between bg-gray-900/40 rounded-lg p-1 border border-gray-700/30">
         <button
           (click)="goToStart()"
           [disabled]="currentMoveIndex < 0"
-          class="p-3 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:hover:bg-transparent transition-all duration-200"
+          class="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded disabled:opacity-40 transition-colors"
           title="Go to Start"
         >
-          <lucide-icon [img]="RotateCcw" class="w-5 h-5"></lucide-icon>
+          <lucide-icon [img]="RotateCcw" class="w-4 h-4"></lucide-icon>
         </button>
         <button
           (click)="goToPrev()"
           [disabled]="currentMoveIndex < 0"
-          class="p-3 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:hover:bg-transparent transition-all duration-200"
+          class="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded disabled:opacity-40 transition-colors"
           title="Previous Move"
         >
-          <lucide-icon [img]="ChevronLeft" class="w-6 h-6"></lucide-icon>
+          <lucide-icon [img]="ChevronLeft" class="w-4 h-4"></lucide-icon>
         </button>
 
-        <div class="px-6 font-mono font-bold text-lg text-white min-w-[5rem] text-center">
+        <div class="font-mono font-bold text-xs text-white min-w-[2.2rem] text-center">
           <span *ngIf="currentMoveIndex >= 0">
-            {{ getMoveNumber() }}<span *ngIf="!getIsWhiteToMove()">...</span><span *ngIf="getIsWhiteToMove()">.</span>
+            {{ getMoveNumber() }}{{ getIsWhiteToMove() ? '.' : '..' }}
           </span>
           <span *ngIf="currentMoveIndex < 0">-</span>
         </div>
@@ -48,84 +33,125 @@
         <button
           (click)="goToNext()"
           [disabled]="currentMoveIndex >= history.length - 1"
-          class="p-3 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:hover:bg-transparent transition-all duration-200"
+          class="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded disabled:opacity-40 transition-colors"
           title="Next Move"
         >
-          <lucide-icon [img]="ChevronRight" class="w-6 h-6"></lucide-icon>
+          <lucide-icon [img]="ChevronRight" class="w-4 h-4"></lucide-icon>
         </button>
         <button
           (click)="goToEnd()"
           [disabled]="currentMoveIndex >= history.length - 1"
-          class="p-3 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:hover:bg-transparent transition-all duration-200"
+          class="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded disabled:opacity-40 transition-colors"
           title="Go to End"
         >
-          <div class="flex -space-x-2">
-            <lucide-icon [img]="ChevronRight" class="w-5 h-5"></lucide-icon>
-            <lucide-icon [img]="ChevronRight" class="w-5 h-5"></lucide-icon>
+          <div class="flex -space-x-1">
+            <lucide-icon [img]="ChevronRight" class="w-3.5 h-3.5"></lucide-icon>
+            <lucide-icon [img]="ChevronRight" class="w-3.5 h-3.5"></lucide-icon>
           </div>
         </button>
       </div>
 
-      <!-- Evaluation Chart -->
-      <div class="w-full max-w-[600px] h-[200px] bg-gray-800 rounded-xl overflow-hidden shadow-lg border border-gray-700/50 cursor-pointer relative" (click)="onChartClick($event)">
-         <svg #chartSvg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 600 200" class="w-full h-full block relative z-10">
-            <!-- Centerline -->
-            <line x1="0" y1="100" x2="600" y2="100" stroke="#4a5568" stroke-width="1" />
-            <!-- Advantage path -->
-            <path [attr.d]="chartPoints" fill="rgba(66, 153, 225, 0.5)" stroke="#3182ce" stroke-width="2" />
+      <button
+        (click)="goBack.emit()"
+        class="w-full py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 font-medium text-xs"
+      >
+        Exit Analysis
+      </button>
+    </div>
+  </div>
 
-            <!-- Current move indicator -->
-            <line *ngIf="evaluations.length > 0 && currentMoveIndex >= -1"
-                  [attr.x1]="((currentMoveIndex + 1) / Math.max(1, evaluations.length - 1)) * 600"
-                  y1="0"
-                  [attr.x2]="((currentMoveIndex + 1) / Math.max(1, evaluations.length - 1)) * 600"
-                  y2="200"
-                  stroke="#fc8181"
-                  stroke-width="2" />
-         </svg>
-         
-         <div class="absolute top-2 left-2 px-2 py-1 bg-gray-900/80 rounded font-mono font-bold text-white z-20 shadow text-sm border border-gray-700/50">
-           {{ getCurrentEvalString() || '...' }}
-         </div>
-      </div>
+  <!-- Middle Column: Maximized Chessboard & Scrollable Chart underneath -->
+  <div class="flex-1 flex flex-col items-center gap-4">
+    <!-- Board container (Expanded to match gameplay) -->
+    <div class="w-full aspect-square rounded-xl overflow-hidden shadow-2xl relative mx-auto border border-gray-700/30 shrink-0" style="max-width: min(100%, 720px, calc(100vh - 48px))">
+      <div #boardContainer class="w-full h-full"></div>
     </div>
 
-    <!-- Right Column: AI Analysis -->
-    <div class="w-full md:w-80 flex flex-col gap-4">
-      <div class="bg-gray-800 rounded-xl p-5 shadow-lg border border-gray-700/50 flex-1 flex flex-col min-h-[400px]">
-        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-gray-700">
-          <div class="p-2 bg-blue-500/10 rounded-lg">
-            <lucide-icon [img]="MessageSquare" class="w-5 h-5 text-blue-400"></lucide-icon>
+    <!-- Evaluation Chart (placed below the fold) -->
+    <div class="w-full max-w-[720px] h-[110px] bg-gray-800 rounded-xl overflow-hidden shadow-lg border border-gray-700/50 cursor-pointer relative shrink-0 animate-fade-in" (click)="onChartClick($event)">
+       <svg #chartSvg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 600 200" class="w-full h-full block relative z-10">
+          <!-- Centerline -->
+          <line x1="0" y1="100" x2="600" y2="100" stroke="#4a5568" stroke-width="1" />
+          <!-- Advantage path -->
+          <path [attr.d]="chartPoints" fill="rgba(66, 153, 225, 0.4)" stroke="#3182ce" stroke-width="2" />
+
+          <!-- Current move indicator -->
+          <line *ngIf="evaluations.length > 0 && currentMoveIndex >= -1"
+                [attr.x1]="((currentMoveIndex + 1) / Math.max(1, evaluations.length - 1)) * 600"
+                y1="0"
+                [attr.x2]="((currentMoveIndex + 1) / Math.max(1, evaluations.length - 1)) * 600"
+                y2="200"
+                stroke="#fc8181"
+                stroke-width="2" />
+       </svg>
+       
+       <div class="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 bg-gray-900/85 rounded font-mono font-bold text-white z-20 shadow text-xs border border-gray-700/50">
+         <span>{{ getCurrentEvalString() || '...' }}</span>
+         <span *ngIf="isCurrentMoveTablebase()" class="flex items-center text-[9px] uppercase font-semibold tracking-wider text-amber-400 bg-amber-400/10 px-1 py-0.5 rounded border border-amber-400/20" title="Perfect Syzygy 7-piece Tablebase Evaluation">
+           TB
+         </span>
+       </div>
+    </div>
+  </div>
+
+  <!-- Right Column: AI Analysis -->
+  <div class="w-full md:w-80 flex flex-col gap-4 md:h-[calc(100vh-32px)] md:max-h-[720px] flex-shrink-0">
+    <div class="bg-gray-800 rounded-xl p-4 shadow-lg border border-gray-700/50 flex-1 flex flex-col min-h-[400px] overflow-hidden">
+      <div class="flex items-center gap-3 mb-4 pb-3 border-b border-gray-700 shrink-0">
+        <div class="p-2 bg-blue-500/10 rounded-lg">
+          <lucide-icon [img]="MessageSquare" class="w-4 h-4 text-blue-400"></lucide-icon>
+        </div>
+        <h3 class="text-sm font-bold text-white uppercase tracking-wider">AI Coach</h3>
+      </div>
+
+      <!-- Loading State for Stockfish -->
+      <div *ngIf="isLoading" class="flex-1 flex flex-col items-center justify-center gap-4 text-gray-400 text-center w-full px-2">
+        <div class="w-8 h-8 border-4 border-gray-600 border-t-blue-500 rounded-full animate-spin mb-1"></div>
+        
+        <div class="w-full">
+          <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden mb-3">
+            <div 
+              class="h-full bg-blue-500 transition-all duration-300 ease-out"
+              [style.width.%]="(getAnalyzedCount() / (history.length + 1)) * 100">
+            </div>
           </div>
-          <h3 class="text-lg font-bold text-white">AI Coach</h3>
+          
+          <div *ngIf="getAnalyzedCount() < history.length + 1">
+            <p class="text-xs font-semibold animate-pulse text-blue-400">
+              Evaluating moves... {{ getAnalyzedCount() }} / {{ history.length + 1 }}
+            </p>
+          </div>
         </div>
 
-        <!-- Loading State -->
-        <div *ngIf="isLoading" class="flex-1 flex flex-col items-center justify-center gap-4 text-gray-400">
-          <div class="w-8 h-8 border-4 border-gray-600 border-t-blue-500 rounded-full animate-spin"></div>
-          <p class="text-sm font-medium animate-pulse">
-            Analyzing game... {{ getAnalyzedCount() }} / {{ history.length + 1 }}
-          </p>
+        <div class="mt-4 p-3 bg-gray-900/50 rounded-lg border border-gray-700/50 max-w-sm w-full">
+          <p class="text-[9px] text-gray-500 mb-1.5 uppercase tracking-widest font-bold">Chess Fact</p>
+          <p class="text-xs text-gray-300 italic">"{{ loadingFacts[currentFactIndex] }}"</p>
         </div>
+      </div>
 
-        <!-- Result State -->
-        <div *ngIf="!isLoading" class="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-          <div class="bg-gray-900/50 rounded-lg p-4 mb-4 border border-gray-700/50 relative group">
+      <!-- Loading State for AI (Stockfish is done) -->
+      <div *ngIf="!isLoading && isAiLoading" class="flex-1 flex flex-col items-center justify-center gap-4 text-gray-400 text-center w-full px-2">
+        <div class="w-8 h-8 border-4 border-gray-600 border-t-emerald-500 rounded-full animate-spin mb-1"></div>
+        <p class="text-xs font-semibold animate-pulse text-emerald-400">
+          Generating AI insights...
+        </p>
+      </div>
 
-            <!-- Move Info -->
-            <div *ngIf="currentMoveIndex >= 0">
-                <h4 class="text-sm font-bold text-gray-300 mb-2 border-b border-gray-700 pb-2">
-                    Move: {{ history[currentMoveIndex]?.san }}
-                </h4>
-            </div>
+      <!-- Result State -->
+      <div *ngIf="!isLoading && !isAiLoading" class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+        <div class="bg-gray-900/50 rounded-lg p-3 mb-3 border border-gray-700/50 relative group">
+          <!-- Move Info -->
+          <div *ngIf="currentMoveIndex >= 0">
+              <h4 class="text-xs font-bold text-gray-300 mb-2 border-b border-gray-750 pb-1.5 font-mono">
+                  Current Move: {{ history[currentMoveIndex]?.san }}
+              </h4>
+          </div>
 
-            <!-- Full Game Summary -->
-            <div class="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
-              {{ gameAnalysis }}
-            </div>
-
+          <!-- Full Game Summary -->
+          <div class="text-gray-300 text-xs leading-relaxed prose prose-invert prose-xs prose-a:text-blue-400 prose-a:cursor-pointer prose-a:no-underline hover:prose-a:underline max-w-none" [innerHTML]="parsedGameAnalysis || gameAnalysis" (click)="onAnalysisClick($event)">
           </div>
         </div>
       </div>
     </div>
   </div>
+</div>
