@@ -1,0 +1,6 @@
+{
+  "name": "Chess Analyzer",
+  "description": "Analyze your chess games with an AI coach",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
