@@ -112,13 +112,13 @@
           <div class="w-full h-1.5 bg-gray-700 rounded-full overflow-hidden mb-3">
             <div 
               class="h-full bg-blue-500 transition-all duration-300 ease-out"
-              [style.width.%]="(getAnalyzedCount() / (history.length + 1)) * 100">
+              [style.width.%]="(cachedAnalyzedCount / (history.length + 1)) * 100">
             </div>
           </div>
           
-          <div *ngIf="getAnalyzedCount() < history.length + 1">
+          <div *ngIf="cachedAnalyzedCount < history.length + 1">
             <p class="text-xs font-semibold animate-pulse text-blue-400">
-              Evaluating moves... {{ getAnalyzedCount() }} / {{ history.length + 1 }}
+              Evaluating moves... {{ cachedAnalyzedCount }} / {{ history.length + 1 }}
             </p>
           </div>
         </div>
