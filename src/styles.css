@@ -10,6 +10,13 @@
   opacity: 0.4;
 }
 
+.cm-chessboard .markers .marker.marker-coordinate {
+  fill: rgba(59, 130, 246, 0.15) !important;
+  stroke: #3b82f6 !important;
+  stroke-width: 4px !important;
+  opacity: 1 !important;
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }

@@ -12,6 +12,6 @@
   </ng-container>
 
   <ng-container *ngIf="gameState() === 'analysis'">
-    <app-analysis [history]="gameHistory()" [depth]="analysisDepth()" (goBack)="goBackToSetup()"></app-analysis>
+    <app-analysis [history]="gameHistory()" [depth]="analysisDepth()" [precomputedEvaluations]="precomputedEvaluations()" [elo]="gameElo()" (goBack)="goBackToSetup()"></app-analysis>
   </ng-container>
 </div>

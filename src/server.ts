@@ -4,7 +4,8 @@ import { WebSocketServer, WebSocket } from 'ws';
 import cors from 'cors';
 import crypto from 'crypto';
 import { GoogleGenAI } from '@google/genai';
-import stockfish from 'stockfish';
+import { AI_CONFIG } from './utils/config';
+import { Chess } from 'chess.js';
 
 let aiClient: GoogleGenAI | null = null;
 function getAiClient(): GoogleGenAI {
@@ -23,7 +24,7 @@ const activeGames = new Map<string, any>();
 
 app.post('/api/chess/start', (req, res) => {
   const gameId = crypto.randomUUID();
-  const request = req.body;
+  const request = req.body || {};
   request.gameId = gameId;
   activeGames.set(gameId, request);
   res.json(request);
@@ -42,199 +43,182 @@ app.get('/api/chess/game/:id', (req, res) => {
 const server = createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
-let currentDepth = 5;
-function setDifficulty(elo: number) {
-  currentDepth = Math.max(1, Math.min(15, Math.floor((elo - 800) * 14 / 2400) + 1));
+function getDepthForElo(elo: number): number {
+  if (elo <= 800) return 2;
+  if (elo <= 1000) return 3;
+  if (elo <= 1200) return 4;
+  if (elo <= 1400) return 5;
+  if (elo <= 1500) return 6;
+  if (elo <= 1600) return 7;
+  if (elo <= 1700) return 8;
+  if (elo <= 1800) return 9;
+  if (elo <= 1900) return 10;
+  if (elo <= 2000) return 11;
+  if (elo <= 2100) return 12;
+  if (elo <= 2200) return 13;
+  return 15;
 }
 
-function countPieces(fen: string): number {
-  const piecePlacement = fen.split(' ')[0];
-  const pieces = piecePlacement.replace(/[^a-zA-Z]/g, '');
-  return pieces.length;
+function getBlunderProbability(elo: number): number {
+  // Humans even at low ratings try to make legal, sensible moves.
+  // To simulate human blunders without making the computer look completely absurd,
+  // we only trigger a completely random move with very low probabilities at low ELOs.
+  if (elo <= 800) return 0.05; // 5% chance
+  if (elo <= 1000) return 0.02; // 2% chance
+  if (elo <= 1200) return 0.01; // 1% chance
+  return 0.0; // 0% chance for 1300+ ELO - rely on Stockfish depth to play naturally
 }
 
-async function queryLichessTablebase(fen: string) {
-  try {
-    const url = `https://tablebase.lichess.ovh/standard?fen=${encodeURIComponent(fen)}`;
-    const res = await fetch(url);
-    if (!res.ok) {
-      console.warn(`[Tablebase] Lichess tablebase returned status ${res.status} for FEN: ${fen}`);
-      return null;
-    }
-    return await res.json();
-  } catch (err) {
-    console.error("[Tablebase] queryLichessTablebase error:", err);
-    return null;
-  }
-}
+const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
-async function getBestMove(fen: string, moveTimeMs: number) {
-  try {
-    if (countPieces(fen) <= 7) {
-      console.log(`[Tablebase] Checking 7-or-fewer pieces endgame for FEN: ${fen}`);
-      const tbData = await queryLichessTablebase(fen);
-      if (tbData && tbData.moves && tbData.moves.length > 0) {
-        // Sort moves to find the absolutely best move (minimizes opponent's WDL and DTM/DTZ)
-        const sortedMoves = [...tbData.moves].sort((a: any, b: any) => {
-          if (a.wdl !== b.wdl) {
-            return a.wdl - b.wdl; // Lower wdl from opponent perspective is better for us
-          }
-          const dtmA = a.dtm !== undefined && a.dtm !== null ? a.dtm : (a.dtz || 0);
-          const dtmB = b.dtm !== undefined && b.dtm !== null ? b.dtm : (b.dtz || 0);
-          return dtmB - dtmA; // Descending dtm/dtz
-        });
-        const bestMove = sortedMoves[0];
-        console.log(`[Tablebase] Found perfect move: ${bestMove.uci} with opponent WDL: ${bestMove.wdl}`);
-        return bestMove.uci;
+async function fetchChessApiDirect(fen: string, depth: number, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch('https://chess-api.com/v1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fen, depth })
+      });
+      if (res.ok) {
+        return await res.json();
+      } else {
+         console.warn(`[chess-api] returned status ${res.status} for depth ${depth}`);
+         if (res.status === 429) {
+            await delay(500 * (i + 1));
+            continue;
+         }
       }
+    } catch (e) {
+      console.error("[chess-api] fetch error:", e);
     }
-  } catch (err) {
-    console.error("[Tablebase] getBestMove tablebase error:", err);
-  }
-
-  try {
-    const res = await sharedEngine.evaluate(fen, currentDepth);
-    if (res && res.move) {
-      return res.move;
-    }
-  } catch (e) {
-    console.error("getBestMove error:", e);
+    await delay(200);
   }
   return null;
 }
 
-class StockfishEngine {
-  engine: any;
-  ready: Promise<void>;
-  resolvers: any[];
+class ChessApiQueue {
+  private queue: Array<{
+    fen: string;
+    depth: number;
+    priority: 'high' | 'low';
+    resolve: (value: any) => void;
+    reject: (reason: any) => void;
+  }> = [];
+  private isProcessing = false;
+  private lastRequestTime = 0;
+  private minInterval = 350; // ms spacing between low-priority requests to prevent 429 rate limits
 
-  constructor() {
-    this.resolvers = [];
-    this.ready = new Promise(async (resolve) => {
-      this.engine = await stockfish();
-      const oldPrint = this.engine.print;
-      this.engine.print = (line: string) => {
-        if (oldPrint) oldPrint(line);
-        this.onMessage(line);
-      };
-      resolve();
+  constructor() {}
+
+  async enqueue(fen: string, depth: number, priority: 'high' | 'low' = 'low'): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const task = { fen, depth, priority, resolve, reject };
+      if (priority === 'high') {
+        // High priority moves are inserted at the very front of the queue
+        // so they bypass any pending evaluations.
+        let lastHighIndex = -1;
+        for (let i = this.queue.length - 1; i >= 0; i--) {
+          if (this.queue[i].priority === 'high') {
+            lastHighIndex = i;
+            break;
+          }
+        }
+        if (lastHighIndex >= 0) {
+          this.queue.splice(lastHighIndex + 1, 0, task);
+        } else {
+          this.queue.unshift(task);
+        }
+      } else {
+        this.queue.push(task);
+      }
+      this.processNext();
     });
   }
-  onMessage(line: string) {
-    for (const resolver of this.resolvers) {
-      resolver(line);
+
+  private async processNext() {
+    if (this.isProcessing) return;
+    if (this.queue.length === 0) return;
+
+    this.isProcessing = true;
+    const task = this.queue.shift()!;
+
+    try {
+      const now = Date.now();
+      const timeSinceLast = now - this.lastRequestTime;
+      const requiredInterval = task.priority === 'high' ? 50 : this.minInterval;
+
+      if (timeSinceLast < requiredInterval) {
+        await delay(requiredInterval - timeSinceLast);
+      }
+
+      this.lastRequestTime = Date.now();
+      const data = await fetchChessApiDirect(task.fen, task.depth);
+      task.resolve(data);
+    } catch (err) {
+      task.reject(err);
+    } finally {
+      this.isProcessing = false;
+      setTimeout(() => this.processNext(), 0);
     }
-  }
-  async evaluate(fen: string, depth: number): Promise<any> {
-    await this.ready;
-    return new Promise(resolve => {
-      let evalScore = 0;
-      let mateScore: number | null = null;
-      let bestMove = '';
-
-      const listener = (line: string) => {
-        if (line.includes('score cp')) {
-          const match = line.match(/score cp (-?\d+)/);
-          if (match) evalScore = parseInt(match[1]);
-          mateScore = null;
-        }
-        if (line.includes('score mate')) {
-          const match = line.match(/score mate (-?\d+)/);
-          if (match) mateScore = parseInt(match[1]);
-        }
-        if (line.startsWith('bestmove')) {
-          const match = line.match(/bestmove ([a-h1-8a-zA-Z]+)/);
-          if (match) bestMove = match[1];
-          
-          this.resolvers = this.resolvers.filter(r => r !== listener);
-          
-          resolve({
-            eval: evalScore / 100, // chess-api returns eval in pawns
-            mate: mateScore,
-            move: bestMove
-          });
-        }
-      };
-      this.resolvers.push(listener);
-      this.engine.sendCommand('position fen ' + fen);
-      this.engine.sendCommand('go depth ' + depth);
-    });
   }
 }
 
-const sharedEngine = new StockfishEngine();
+const apiQueue = new ChessApiQueue();
 
-async function getEvaluation(fen: string, depth: number = 8) {
-  try {
-    if (countPieces(fen) <= 7) {
-      console.log(`[Tablebase] Evaluating 7-or-fewer pieces endgame for FEN: ${fen}`);
-      const tbData = await queryLichessTablebase(fen);
-      if (tbData) {
-        const mapped: any = { isTablebase: true };
-        
-        const isWhiteToMove = fen.split(' ')[1] === 'w';
-        const wdl = tbData.wdl;
-        const dtm = tbData.dtm;
-        
-        let isWhiteWinning = false;
-        let isBlackWinning = false;
+async function getBestMove(fen: string, moveTimeMs: number, elo: number = 1500) {
+  const depth = getDepthForElo(elo);
+  const blunderProb = getBlunderProbability(elo);
+  const triggerBlunder = Math.random() < blunderProb;
 
-        if (wdl > 0) {
-          if (isWhiteToMove) {
-            isWhiteWinning = true;
-          } else {
-            isBlackWinning = true;
-          }
-        } else if (wdl < 0) {
-          if (isWhiteToMove) {
-            isBlackWinning = true;
-          } else {
-            isWhiteWinning = true;
-          }
-        }
-
-        if (isWhiteWinning) {
-          if (dtm !== undefined && dtm !== null && dtm !== 0) {
-            mapped.mate = Math.ceil(Math.abs(dtm) / 2);
-          } else {
-            mapped.eval = 10.0;
-          }
-        } else if (isBlackWinning) {
-          if (dtm !== undefined && dtm !== null && dtm !== 0) {
-            mapped.mate = -Math.ceil(Math.abs(dtm) / 2);
-          } else {
-            mapped.eval = -10.0;
-          }
-        } else {
-          mapped.eval = 0.0;
-        }
-
-        if (tbData.moves && tbData.moves.length > 0) {
-          const sortedMoves = [...tbData.moves].sort((a: any, b: any) => {
-            if (a.wdl !== b.wdl) {
-              return a.wdl - b.wdl;
-            }
-            const dtmA = a.dtm !== undefined && a.dtm !== null ? a.dtm : (a.dtz || 0);
-            const dtmB = b.dtm !== undefined && b.dtm !== null ? b.dtm : (b.dtz || 0);
-            return dtmB - dtmA;
-          });
-          mapped.move = sortedMoves[0].uci;
-        }
-
-        console.log(`[Tablebase] Endgame position successfully mapped to:`, mapped);
-        return mapped;
+  if (triggerBlunder) {
+    console.log(`[ELO ${elo}] Blunder triggered (probability: ${blunderProb.toFixed(2)})`);
+    try {
+      const chess = new Chess(fen);
+      const moves = chess.moves({ verbose: true });
+      if (moves.length > 0) {
+        // Shuffle and pick a random legal move
+        const shuffled = [...moves].sort(() => Math.random() - 0.5);
+        const selected = shuffled[0];
+        const lanMove = selected.lan || selected.from + selected.to + (selected.promotion || '');
+        console.log(`[ELO ${elo}] Blunder chosen: ${lanMove}`);
+        return lanMove;
       }
+    } catch (e) {
+      console.error("[ELO Blunder] Error picking random move:", e);
     }
-  } catch (err) {
-    console.error("[Tablebase] getEvaluation tablebase error:", err);
   }
 
-  try {
-    return await sharedEngine.evaluate(fen, depth);
-  } catch (e) {
-    console.error("getEvaluation error:", e);
-    return null;
+  // Game moves get high priority to execute instantly
+  const data = await apiQueue.enqueue(fen, depth, 'high');
+  if (data && data.move) {
+    return data.move;
   }
+  
+  // Fallback to random move if API completely fails to avoid hanging
+  console.log("[chess-api] Falling back to random move");
+  try {
+    const chess = new Chess(fen);
+    const moves = chess.moves({ verbose: true });
+    if (moves.length > 0) {
+      const randomMove = moves[Math.floor(Math.random() * moves.length)];
+      return randomMove.lan || randomMove.from + randomMove.to + (randomMove.promotion || '');
+    }
+  } catch(e) {
+    console.error("Fallback random move error:", e);
+  }
+  return null;
+}
+
+async function getEvaluation(fen: string, depth: number = 8, priority: 'high' | 'low' = 'low') {
+  const data = await apiQueue.enqueue(fen, depth, priority);
+  if (data) {
+    return {
+      eval: data.eval !== undefined ? data.eval : 0,
+      mate: data.mate,
+      move: data.move
+    };
+  }
+  return null;
 }
 
 function parseEvaluationScore(e: string): number {
@@ -244,7 +228,7 @@ function parseEvaluationScore(e: string): number {
   return parseFloat(e) || 0;
 }
 
-async function getFullGameExplanation(pgn: string, evaluationsJson: string) {
+async function getFullGameExplanation(pgn: string, evaluationsJson: string, elo: number = 1500) {
   try {
     const evaluations: string[] = JSON.parse(evaluationsJson);
     const totalPlies = evaluations.length - 1;
@@ -288,8 +272,42 @@ async function getFullGameExplanation(pgn: string, evaluationsJson: string) {
       });
     }
 
+    let coachInstructions = "";
+    if (elo < 1200) {
+      coachInstructions = `
+Вы анализируете игру новичка или слабого игрока (рейтинг ~${elo}).
+- Стройте рекомендации и объяснения на ОЧЕНЬ простом и доступном языке. Не перегружайте терминами.
+- Сосредоточьтесь на базовой безопасности фигур (зевки, прямые угрозы взятия, двойные удары, маты в 1-2 хода).
+- Не говорите про сложные стратегические идеи (типа "борьба за поля", "миноритарная атака", "тонкая пешечная структура").
+- Объясняйте, почему ход плохой, на языке материальных потерь ("этот ход отдает ладью", "теряется слон").
+- Общайтесь максимально дружелюбно, поддерживающе и ободряюще, как терпеливый учитель.
+- ОБЯЗАТЕЛЬНО оформляйте ходы из партии в виде ссылок [НомерХода. Ход](#move-plyIndex), а альтернативные ходы — в виде [Ход](#alt-plyIndex-san). Например: "[15. Nxe4](#move-28)" или "[d4](#alt-29-d4)". Без этого ссылки не будут кликабельными!
+`;
+    } else if (elo < 1800) {
+      coachInstructions = `
+Вы анализируете игру игрока среднего уровня (рейтинг ~${elo}).
+- Объясняйте стандартные тактические мотивы (связки, вилки, отвлечения, открытые шахи) и базовые позиционные концепции (контроль открытых линий, пешечные слабости, форпосты, активность фигур).
+- Можно использовать стандартную шахматную терминологию (фианкетто, темп, форпост, рокировка).
+- Оценивайте ходы с точки зрения координации фигур, планов игры на 2-3 хода вперед и безопасности короля.
+- Тон должен быть аналитическим, профессиональным и обучающим.
+- ОБЯЗАТЕЛЬНО оформляйте ходы из партии в виде ссылок [НомерХода. Ход](#move-plyIndex), а альтернативные ходы — в виде [Ход](#alt-plyIndex-san). Например: "[15. Nxe4](#move-28)" или "[d4](#alt-29-d4)". Без этого ссылки не будут кликабельными!
+`;
+    } else {
+      coachInstructions = `
+Вы анализируете игру опытного игрока/эксперта (рейтинг ~${elo}).
+- Общайтесь на профессиональном гроссмейстерском уровне. Полностью исключите банальные, очевидные тактические или стратегические объяснения.
+- Сосредоточьтесь на глубоких позиционных нюансах, стратегических планах, тонкостях эндшпиля, сложных тактических перегрузках и дебютной теории.
+- Активно используйте продвинутую шахматную терминологию.
+- Тон должен быть исключительно аналитическим, прямым и лаконичным, как при разборе партии между равными сильными игроками.
+- ОБЯЗАТЕЛЬНО оформляйте ходы из партии в виде ссылок [НомерХода. Ход](#move-plyIndex), а альтернативные ходы — в виде [Ход](#alt-plyIndex-san). Например: "[15. Nxe4](#move-28)" или "[d4](#alt-29-d4)". Без этого ссылки не будут кликабельными!
+`;
+    }
+
     const prompt = `You are an expert chess coach. Your task is to analyze the following chess game using the provided PGN and a pre-calculated list of critical mistakes.
 You must return a highly structured, accurate, and consistent analysis in Russian. Keep the analysis VERY CONCISE to save time.
+
+### ИНСТРУКЦИЯ ДЛЯ ТРЕНЕРА (ВАЖНО! СТРОЙТЕ ОБЪЯСНЕНИЯ ИСХОДЯ ИЗ РЕЙТИНГА ИГРОКА):
+${coachInstructions}
 
 ### INPUT DATA:
 1. PGN: ${pgn}
@@ -297,8 +315,9 @@ You must return a highly structured, accurate, and consistent analysis in Russia
 ${criticalMomentsText}
 
 ### ANALYSIS RULES (MANDATORY):
-- Focus YOUR review ONLY on the top 1 or 2 critical engine shifts provided above. Do not over-analyze.
-- If there are no major blunders, highlight just one most important strategic moment.
+- Analyze and explain all the critical engine shifts listed above (up to 4-5 key moments).
+- **CRITICAL REQUIREMENT**: Pay special attention to the end of the game and any blunder/mistake on the LAST moves of the game if they are listed in the critical shifts. It is extremely important to discuss them, do NOT ignore them!
+- If there are no major blunders, highlight just 1 or 2 most important strategic moments.
 - For each key moment you discuss, you MUST:
   1. State the move using the mandatory link format for actual moves: [MoveNumber. Move] with href '#move-plyIndex'.
      * Example: If White's 15th move is Nxe4 and it's ply index 28, write: "[15. Nxe4](#move-28)".
@@ -313,7 +332,7 @@ You MUST structure your response with these exact markdown headings:
 Provide a 2-3 sentence summary of the game.
 
 ### 🔑 Ключевые моменты
-List ONLY the 1-2 most critical moments. Use the clickable links. Keep it brief.
+List all identified critical moments (up to 4-5 moments), ensuring you include the final moves if a blunder occurred there. Use the clickable links. Keep them concise but highly informative.
 
 ### 💡 Совет тренера
 Provide exactly 1 short actionable coaching tip.
@@ -324,15 +343,19 @@ Provide exactly 1 short actionable coaching tip.
 - LANGUAGE: Answer ONLY in Russian.
 - DO NOT print any preamble or internal thoughts. Just start directly with the first heading.`;
 
-    // Try alternative API first if configured
-    const apiUrl = process.env['AI_API_URL'];
-    const apiModel = process.env['AI_API_MODEL'] || 'openai';
+    const apiUrl = AI_CONFIG.API_URL;
+    const apiModel = AI_CONFIG.API_MODEL;
     if (apiUrl) {
       try {
         console.log(`[AI] Querying alternative API: ${apiUrl} with model: ${apiModel}`);
+        const headers: any = { 'Content-Type': 'application/json' };
+        if (apiUrl.includes('generativelanguage.googleapis.com')) {
+           headers['Authorization'] = `Bearer ${process.env['GEMINI_API_KEY']}`;
+        }
+        
         const res = await fetch(apiUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             model: apiModel,
             messages: [{ role: 'user', content: prompt }]
@@ -355,15 +378,31 @@ Provide exactly 1 short actionable coaching tip.
 
     // Fallback to Gemini
     console.log("[AI] Querying Gemini API...");
-    const response = await getAiClient().models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: prompt,
-    });
-    
-    const text = response.text;
-    if (text && text.trim().length > 0) {
-      console.log("[AI] Gemini API explanation generated successfully.");
-      return text;
+    try {
+      const response = await getAiClient().models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt,
+      });
+      const text = response.text;
+      if (text && text.trim().length > 0) {
+        console.log("[AI] Gemini API 2.5-flash explanation generated successfully.");
+        return text;
+      }
+    } catch (geminiErr) {
+      console.warn("[AI] Gemini 2.5-flash failed, trying 3.5-flash...", geminiErr);
+      try {
+        const response = await getAiClient().models.generateContent({
+          model: 'gemini-3.5-flash',
+          contents: prompt,
+        });
+        const text = response.text;
+        if (text && text.trim().length > 0) {
+          console.log("[AI] Gemini API 3.5-flash explanation generated successfully.");
+          return text;
+        }
+      } catch (gemini35Err) {
+        console.error("[AI] Both 2.5-flash and 3.5-flash failed:", gemini35Err);
+      }
     }
   } catch (e) {
     console.error("getFullGameExplanation total error:", e);
@@ -381,22 +420,40 @@ wss.on('connection', (ws) => {
       if (type === 'ENGINE_MOVE' || type === 'REQUEST_MOVE') {
         const fen = payload.fen;
         const difficulty = payload.difficulty || 1500;
-        setDifficulty(difficulty);
-        const bestMove = await getBestMove(fen, 1000);
+        const bestMove = await getBestMove(fen, 1000, difficulty);
         if (bestMove) {
           ws.send(JSON.stringify({ type: 'ENGINE_MOVE', move: bestMove }));
         }
+      } else if (type === 'EVALUATE_MOVE') {
+        const fen = payload.fen;
+        const index = payload.index;
+        const analysisDepth = payload.depth || 8;
+        const evalNode = await getEvaluation(fen, analysisDepth);
+        ws.send(JSON.stringify({ 
+           type: 'EVALUATION_RESULT', 
+           index: index, 
+           evaluation: evalNode
+        }));
       } else if (type === 'ANALYZE_GAME') {
         const pgn = payload.pgn;
         const fens = payload.fens || [];
+        const precomputed = payload.precomputedEvaluations || [];
         const analysisDepth = payload.depth || 8;
+        const elo = payload.elo || 1500;
         const evaluations = new Array(fens.length).fill(null);
         const evalValues = new Array(fens.length).fill(0);
         
-        // Evaluate sequentially since we share a single Stockfish instance
+        // Evaluate sequentially, using precomputed if available
         for (let index = 0; index < fens.length; index++) {
           const fen = fens[index];
-          const evalNode = await getEvaluation(fen, analysisDepth);
+          let evalNode = precomputed[index];
+          
+          if (!evalNode && evalNode !== null) { // precomputed might be explicitly null if failed, but we want to retry if it's strictly undefined or null
+             evalNode = await getEvaluation(fen, analysisDepth);
+          } else if (evalNode === null) {
+             evalNode = await getEvaluation(fen, analysisDepth);
+          }
+          
           evaluations[index] = evalNode;
           
           let evalValue = 0;
@@ -437,7 +494,7 @@ wss.on('connection', (ws) => {
           evaluations
         }));
 
-        const aiText = await getFullGameExplanation(pgn, JSON.stringify(formattedEvals));
+        const aiText = await getFullGameExplanation(pgn, JSON.stringify(formattedEvals), elo);
         
         ws.send(JSON.stringify({
           type: 'ANALYSIS_GAME_RESULT',
@@ -466,7 +523,7 @@ app.get(/.*/, (req, res) => {
   res.sendFile('dist/frontend/browser/index.html', { root: '.' });
 });
 
-const PORT = Number(process.env['PORT']) || 3000;
+const PORT = 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });

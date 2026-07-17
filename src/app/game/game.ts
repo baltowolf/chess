@@ -26,7 +26,7 @@ import { chessAudio } from './audio';
 export class Game implements OnInit, OnDestroy, AfterViewInit {
   @Input() settings: any;
   @Output() goBack = new EventEmitter<void>();
-  @Output() analyze = new EventEmitter<{ history: any[], depth: number }>();
+  @Output() analyze = new EventEmitter<{ history: any[], depth: number, precomputedEvaluations: any[], elo?: number }>();
 
   constructor(private cdr: ChangeDetectorRef, private ngZone: NgZone) {}
 
@@ -48,6 +48,9 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
   INPUT_EVENT_TYPE: any;
   highlightMarkerType: any;
 
+  // Cache evaluations for real-time analysis
+  precomputedEvaluations: any[] = [];
+
   // Timers
   playerTime = 0;
   engineTime = 0;
@@ -66,6 +69,9 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
   ngOnInit() {
     this.parseTimeControl();
     this.updateCachedState(); // Initialize state
+    
+    // Default position evaluation
+    this.precomputedEvaluations[0] = { eval: 0.33 };
 
     this.ws = new WebSocket(getWebSocketUrl());
 
@@ -95,6 +101,8 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
           }
 
           this.makeAMove(moveObj, true);
+        } else if (data.type === 'EVALUATION_RESULT') {
+          this.precomputedEvaluations[data.index] = data.evaluation;
         }
         this.cdr.detectChanges();
       });
@@ -263,7 +271,19 @@ export class Game implements OnInit, OnDestroy, AfterViewInit {
   makeAMove(move: any, isEngine: boolean = false) {
     try {
       const result = this.game.move(move);
-      this.moveHistory.push({ ...result, fenAfter: this.game.fen() });
+      const fenAfter = this.game.fen();
+      this.moveHistory.push({ ...result, fenAfter });
+
+      // Request evaluation for this move if we aren't game over
+      const currentIndex = this.moveHistory.length; // because DEFAULT_POSITION is index 0 in analysis
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({
+           type: 'EVALUATE_MOVE',
+           fen: fenAfter,
+           index: currentIndex,
+           depth: this.analysisDepth
+        }));
+      }
 
       this.updateCachedState();
 

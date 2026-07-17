@@ -71,7 +71,7 @@
       </button>
       <button
         [disabled]="!cachedIsGameOver"
-        (click)="analyze.emit({ history: moveHistory, depth: analysisDepth })"
+        (click)="analyze.emit({ history: moveHistory, depth: analysisDepth, precomputedEvaluations: precomputedEvaluations, elo: settings?.difficulty || 1500 })"
         [ngClass]="
           cachedIsGameOver
             ? 'bg-blue-600 hover:bg-blue-500'

@@ -41,6 +41,8 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
 
   @Input() history: any[] = [];
   @Input() depth: number = 8;
+  @Input() precomputedEvaluations: any[] = [];
+  @Input() elo: number = 1500;
   @Output() goBack = new EventEmitter<void>();
 
   constructor(private cdr: ChangeDetectorRef, private ngZone: NgZone, private sanitizer: DomSanitizer) {}
@@ -58,6 +60,8 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   gameAnalysis: any = null;
   parsedGameAnalysis: SafeHtml | null = null;
   evaluations: any[] = [];
+  highlightedSquare: string | null = null;
+  coordinateMarkerType = { class: "marker-coordinate", slice: "markerSquare" };
 
   // Chart calculation data
   chartPoints: string = "";
@@ -93,17 +97,18 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   async ngAfterViewInit() {
     const { Chessboard } = await import('cm-chessboard');
     const { Arrows, ARROW_TYPE } = await import('cm-chessboard/src/extensions/arrows/Arrows.js');
+    const { Markers } = await import('cm-chessboard/src/extensions/markers/Markers.js');
     this.ArrowsExt = Arrows;
     this.ArrowTypeExt = ARROW_TYPE;
 
     this.chessboard = new Chessboard(this.boardContainer.nativeElement, {
       position: this.getCurrentFen(),
       assetsUrl: '/assets/',
-      assetsCache: false,
+      assetsCache: true,
       style: {
         cssClass: 'default',
       },
-      extensions: [{ class: Arrows }]
+      extensions: [{ class: Arrows }, { class: Markers }]
     });
 
     this.updateBoard();
@@ -178,6 +183,19 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   getArrowTypeForMove(moveIndex: number) {
     if (moveIndex < 0 || !this.evaluations || this.evaluations.length <= moveIndex + 1) return this.ArrowTypeExt.secondary;
     
+    // Check if this move delivers checkmate using chess.js
+    const move = this.history[moveIndex];
+    if (move && move.fenAfter) {
+      try {
+        const chess = new Chess(move.fenAfter);
+        if (chess.isCheckmate()) {
+          return this.ArrowTypeExt.success; // ALWAYS mark checkmate with a success (green) arrow!
+        }
+      } catch (e) {
+        console.error("Error checking checkmate:", e);
+      }
+    }
+
     const evalBefore = this.evaluations[moveIndex];
     const evalAfter = this.evaluations[moveIndex + 1];
     
@@ -228,6 +246,11 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
           this.chessboard.addArrow(arrowType, move.from, move.to);
         }
       }
+
+      // Redraw highlighted square marker if present
+      if (this.highlightedSquare) {
+        this.chessboard.addMarker(this.coordinateMarkerType, this.highlightedSquare);
+      }
     }
   }
 
@@ -265,7 +288,9 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
           type: 'ANALYZE_GAME',
           pgn: pgn,
           fens: fens,
-          depth: this.depth
+          depth: this.depth,
+          precomputedEvaluations: this.precomputedEvaluations,
+          elo: this.elo
         }),
       );
     };
@@ -292,7 +317,8 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
           this.gameAnalysis = data.aiExplanation;
           
           Promise.resolve(marked.parse(this.gameAnalysis || '')).then(parsed => {
-            this.parsedGameAnalysis = this.sanitizer.bypassSecurityTrustHtml(parsed as string);
+            const htmlWithCoords = this.highlightCoordinatesInHtml(parsed as string);
+            this.parsedGameAnalysis = this.sanitizer.bypassSecurityTrustHtml(htmlWithCoords);
             this.cdr.detectChanges();
           });
 
@@ -405,46 +431,161 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
     this.updateBoard();
   }
 
+  highlightCoordinatesInHtml(html: string): string {
+    if (!html) return html;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      const walk = (node: Node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          const parent = node.parentNode;
+          // Check if parent or any ancestor is an anchor tag 'A'
+          let inAnchor = false;
+          let temp: HTMLElement | null = parent as HTMLElement;
+          while (temp) {
+            if (temp.tagName === 'A') {
+              inAnchor = true;
+              break;
+            }
+            temp = temp.parentElement;
+          }
+          
+          if (!inAnchor && node.nodeValue) {
+            const text = node.nodeValue;
+            const regex = /\b([a-h][1-8])\b/gi;
+            if (regex.test(text)) {
+              // Create a document fragment to hold the new structure
+              const fragment = doc.createDocumentFragment();
+              const container = doc.createElement('div');
+              container.innerHTML = text.replace(regex, (match) => {
+                return `<a href="#square-${match.toLowerCase()}" class="coordinate-link text-blue-400 hover:underline hover:text-blue-300 font-mono font-semibold">${match}</a>`;
+              });
+              
+              // Move children of container to fragment
+              while (container.firstChild) {
+                fragment.appendChild(container.firstChild);
+              }
+              
+              parent?.replaceChild(fragment, node);
+            }
+          }
+        } else {
+          // Clone childNodes array because replacing children modifies the live list
+          const children = Array.from(node.childNodes);
+          for (const child of children) {
+            walk(child);
+          }
+        }
+      };
+      
+      walk(doc.body);
+      return doc.body.innerHTML;
+    } catch (e) {
+      console.error("DOMParser coordinate highlighting error, falling back to regex:", e);
+      // Fallback regex logic in case DOMParser fails
+      return html;
+    }
+  }
+
+  highlightSquareOnBoard(square: string) {
+    if (!this.chessboard) return;
+    console.log("[highlightSquareOnBoard] Highlighting square:", square, "Previous highlightedSquare:", this.highlightedSquare);
+    
+    // Remove previous highlighted square if any
+    if (this.highlightedSquare) {
+      try {
+        this.chessboard.removeMarkers(this.coordinateMarkerType, this.highlightedSquare);
+      } catch (e) {
+        console.warn("Error removing marker:", e);
+      }
+    }
+    
+    this.highlightedSquare = square;
+    try {
+      this.chessboard.addMarker(this.coordinateMarkerType, square);
+    } catch (e) {
+      console.warn("Error adding marker:", e);
+    }
+  }
+
   onAnalysisClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
+    console.log("[onAnalysisClick] Element clicked:", target);
     
     // Check if a link was clicked
     const link = target.closest('a');
     if (link) {
       const href = link.getAttribute('href');
-      if (href?.startsWith('#move-')) {
-        event.preventDefault(); // Prevent scrolling to anchor
-        const plyIndex = parseInt(href.replace('#move-', '') || '-1', 10);
-        
-        if (!isNaN(plyIndex) && plyIndex >= 0 && plyIndex < this.history.length) {
-          this.previewFen = null;
-          this.previewArrow = null;
-          this.currentMoveIndex = plyIndex;
-          this.updateBoard();
-        }
-      } else if (href?.startsWith('#alt-')) {
-        event.preventDefault();
-        const parts = href.split('-');
-        if (parts.length >= 3) {
-          const plyIndex = parseInt(parts[1], 10);
-          const san = parts.slice(2).join('-');
-          if (!isNaN(plyIndex) && plyIndex >= 0 && plyIndex <= this.history.length) {
-            const chess = new Chess();
-            const fenBefore = plyIndex === 0 ? DEFAULT_POSITION : this.history[plyIndex - 1].fenAfter;
-            chess.load(fenBefore);
-            try {
-              const move = chess.move(san);
-              if (move) {
-                this.previewFen = chess.fen();
-                this.previewArrow = { from: move.from, to: move.to, color: this.ArrowTypeExt.success };
-                // Keep the currentMoveIndex at the move before the suggested one, but show the preview
-                this.currentMoveIndex = plyIndex - 1; 
-                this.updateBoard();
+      console.log("[onAnalysisClick] Found anchor link with href:", href);
+      if (href) {
+        if (href.includes('#move-')) {
+          event.preventDefault(); // Prevent scrolling to anchor
+          const hashIndex = href.indexOf('#move-');
+          const plyIndexStr = href.substring(hashIndex + '#move-'.length);
+          const plyIndex = parseInt(plyIndexStr, 10);
+          console.log("[onAnalysisClick] Parsed move link plyIndex:", plyIndex, "Total history length:", this.history.length);
+          
+          if (!isNaN(plyIndex) && plyIndex >= 0 && plyIndex < this.history.length) {
+            this.previewFen = null;
+            this.previewArrow = null;
+            // Clear any square highlights
+            if (this.highlightedSquare && this.chessboard) {
+              try {
+                this.chessboard.removeMarkers(this.coordinateMarkerType, this.highlightedSquare);
+              } catch (e) {
+                console.error("[onAnalysisClick] Error removing coordinate marker:", e);
               }
-            } catch (e) {
-              console.error("Invalid alternative move:", san);
+              this.highlightedSquare = null;
+            }
+            this.currentMoveIndex = plyIndex;
+            console.log("[onAnalysisClick] Updating board to move index:", plyIndex);
+            this.updateBoard();
+          } else {
+            console.warn("[onAnalysisClick] Move plyIndex is out of range or NaN");
+          }
+        } else if (href.includes('#alt-')) {
+          event.preventDefault();
+          const hashIndex = href.indexOf('#alt-');
+          const altStr = href.substring(hashIndex + '#alt-'.length);
+          const parts = altStr.split('-');
+          console.log("[onAnalysisClick] Parsed alt link parts:", parts);
+          if (parts.length >= 2) {
+            const plyIndex = parseInt(parts[0], 10);
+            const san = parts.slice(1).join('-');
+            console.log("[onAnalysisClick] Alt move plyIndex:", plyIndex, "san:", san);
+            if (!isNaN(plyIndex) && plyIndex >= 0 && plyIndex <= this.history.length) {
+              const chess = new Chess();
+              const fenBefore = plyIndex === 0 ? DEFAULT_POSITION : this.history[plyIndex - 1].fenAfter;
+              chess.load(fenBefore);
+              try {
+                const move = chess.move(san);
+                if (move) {
+                  // Clear any square highlights
+                  if (this.highlightedSquare && this.chessboard) {
+                    try {
+                      this.chessboard.removeMarkers(this.coordinateMarkerType, this.highlightedSquare);
+                    } catch (e) {}
+                    this.highlightedSquare = null;
+                  }
+                  this.previewFen = chess.fen();
+                  this.previewArrow = { from: move.from, to: move.to, color: this.ArrowTypeExt.success };
+                  // Keep the currentMoveIndex at the move before the suggested one, but show the preview
+                  this.currentMoveIndex = plyIndex - 1; 
+                  console.log("[onAnalysisClick] Setting preview for alt move. Preview FEN:", this.previewFen, "previewArrow:", this.previewArrow);
+                  this.updateBoard();
+                }
+              } catch (e) {
+                console.error("Invalid alternative move:", san, e);
+              }
             }
           }
+        } else if (href.includes('#square-')) {
+          event.preventDefault();
+          const hashIndex = href.indexOf('#square-');
+          const square = href.substring(hashIndex + '#square-'.length);
+          console.log("[onAnalysisClick] Highlighting square coordinate:", square);
+          this.highlightSquareOnBoard(square);
         }
       }
     }
@@ -453,6 +594,12 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   clearPreview() {
     this.previewFen = null;
     this.previewArrow = null;
+    if (this.highlightedSquare && this.chessboard) {
+      try {
+        this.chessboard.removeMarkers(this.coordinateMarkerType, this.highlightedSquare);
+      } catch (e) {}
+      this.highlightedSquare = null;
+    }
   }
 
   goToStart() {
