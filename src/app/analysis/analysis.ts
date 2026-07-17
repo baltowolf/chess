@@ -58,6 +58,7 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   gameAnalysis: any = null;
   parsedGameAnalysis: SafeHtml | null = null;
   evaluations: any[] = [];
+  cachedAnalyzedCount: number = 0;
 
   // Chart calculation data
   chartPoints: string = "";
@@ -143,11 +144,6 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
 
   getIsWhiteToMove() {
     return this.currentMoveIndex >= 0 ? this.currentMoveIndex % 2 === 0 : true;
-  }
-
-  getAnalyzedCount() {
-    if (!this.evaluations) return 0;
-    return this.evaluations.filter(e => e !== null).length;
   }
 
   getCurrentEvalString(): string {
@@ -238,12 +234,12 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
     if (this.factTimer) {
       clearInterval(this.factTimer);
     }
-    this.factTimer = setInterval(() => {
-      this.ngZone.run(() => {
+    this.ngZone.runOutsideAngular(() => {
+      this.factTimer = setInterval(() => {
         this.currentFactIndex = (this.currentFactIndex + 1) % this.loadingFacts.length;
         this.cdr.detectChanges();
-      });
-    }, 4000);
+      }, 4000);
+    });
 
     if (this.ws) {
       this.ws.close();
@@ -268,6 +264,7 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
           depth: this.depth
         }),
       );
+      this.cachedAnalyzedCount = 0;
     };
 
     this.ws.onmessage = (event) => {
@@ -279,11 +276,13 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
             this.evaluations = new Array(data.total).fill(null);
           }
           this.evaluations[data.index] = data.evaluation;
+          this.cachedAnalyzedCount = this.evaluations.filter(e => e !== null).length;
           this.calculateChart();
           this.updateBoard(); // Redraw arrows
           this.cdr.detectChanges();
         } else if (data.type === 'ANALYSIS_EVALUATION_DONE') {
           this.evaluations = data.evaluations;
+          this.cachedAnalyzedCount = this.evaluations.filter(e => e !== null).length;
           this.calculateChart();
           this.updateBoard();
           this.isLoading = false; // Stockfish is done, unlock the board
