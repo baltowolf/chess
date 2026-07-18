@@ -63,6 +63,9 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
   highlightedSquare: string | null = null;
   coordinateMarkerType = { class: "marker-coordinate", slice: "markerSquare" };
 
+  // ⚡ Bolt: Cache analyzed count to avoid O(N) array filtering in the template
+  analyzedCount: number = 0;
+
   // Chart calculation data
   chartPoints: string = "";
 
@@ -148,11 +151,6 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
 
   getIsWhiteToMove() {
     return this.currentMoveIndex >= 0 ? this.currentMoveIndex % 2 === 0 : true;
-  }
-
-  getAnalyzedCount() {
-    if (!this.evaluations) return 0;
-    return this.evaluations.filter(e => e !== null).length;
   }
 
   getCurrentEvalString(): string {
@@ -302,6 +300,10 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
           // Initialize array if needed
           if (this.evaluations.length !== data.total) {
             this.evaluations = new Array(data.total).fill(null);
+            this.analyzedCount = 0;
+          }
+          if (this.evaluations[data.index] === null && data.evaluation !== null) {
+            this.analyzedCount++;
           }
           this.evaluations[data.index] = data.evaluation;
           this.calculateChart();
@@ -309,6 +311,7 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
           this.cdr.detectChanges();
         } else if (data.type === 'ANALYSIS_EVALUATION_DONE') {
           this.evaluations = data.evaluations;
+          this.analyzedCount = this.evaluations.filter(e => e !== null).length;
           this.calculateChart();
           this.updateBoard();
           this.isLoading = false; // Stockfish is done, unlock the board
@@ -324,6 +327,7 @@ export class Analysis implements OnInit, OnDestroy, AfterViewInit {
 
           if (data.evaluations) {
             this.evaluations = data.evaluations;
+            this.analyzedCount = this.evaluations.filter(e => e !== null).length;
             this.calculateChart();
             this.updateBoard(); // Redraw arrows with loaded data
           }
