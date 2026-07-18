@@ -1,100 +1,381 @@
 <div
-  class="flex flex-col md:flex-row items-start justify-center gap-6 w-full max-w-6xl mx-auto p-4"
+  class="flex flex-col md:flex-row items-start justify-center gap-4 md:gap-6 w-full max-w-6xl mx-auto p-1.5 md:p-3"
 >
   <!-- Sidebar Left: Settings / Info (Compacted) -->
-  <div class="w-full md:w-48 bg-neutral-800 p-3 rounded-xl border border-neutral-700 flex-shrink-0 text-xs">
-    <h3 class="font-bold text-sm mb-3 text-white">Match Info</h3>
+  <div class="w-full md:w-48 bg-neutral-800 p-3 rounded-xl border border-neutral-700 flex-shrink-0 text-xs text-left">
+    <h3 class="font-bold text-sm mb-3 text-white">{{ lang.t('Информация о матче', 'Match Info') }}</h3>
     <div class="space-y-1.5 text-neutral-300">
       <p>
-        Playing as: <span class="text-white font-semibold capitalize">{{ settings.side }}</span>
+        {{ lang.t('Цвет игры:', 'Playing as:') }} <span class="text-white font-semibold capitalize">{{ settings.side === 'white' ? lang.t('Белые', 'White') : (settings.side === 'black' ? lang.t('Черные', 'Black') : lang.t('Случайный', 'Random')) }}</span>
       </p>
       <p>
-        Engine:
-        <span class="text-white font-semibold">Stockfish {{ settings.difficulty }}</span>
+        {{ lang.t('Движок:', 'Engine:') }}
+        <span class="text-white font-semibold">Stockfish {{ lang.t('Уровень', 'Level') }} {{ settings?.skillLevel || 8 }} ({{ settings?.difficulty }} ELO)</span>
       </p>
       <p>
-        Time: <span class="text-white font-semibold">{{ settings.timeControl }}</span>
+        {{ lang.t('Контроль:', 'Time:') }} <span class="text-white font-semibold">{{ settings.timeControl }}</span>
       </p>
+      <div *ngIf="settings?.tournamentMode" class="mt-2.5 px-2 py-1 bg-amber-500/10 border border-amber-500/25 rounded-lg flex items-center justify-center gap-1.5 select-none animate-pulse">
+        <span class="text-amber-400 text-xs font-bold font-mono">🏆 {{ lang.t('ТУРНИР', 'TOURNAMENT') }}</span>
+      </div>
     </div>
 
-    <div class="mt-6 space-y-2">
+    <!-- Dedicated Grouped Captured Pieces Panel -->
+    <div class="mt-4 pt-3 border-t border-neutral-700/50 space-y-3">
+      <h4 class="font-bold text-[10px] text-neutral-400 uppercase tracking-wider select-none flex items-center gap-1.5">
+        <span>⚔️</span>
+        <span>{{ lang.t('Сбитые фигуры', 'Captured Material') }}</span>
+      </h4>
+      
+      <!-- Guest (Player) Captures -->
+      <div class="space-y-1">
+        <div class="flex items-center justify-between text-[11px] font-medium text-neutral-400">
+          <span class="flex items-center gap-1 select-none">
+            <span>👤</span>
+            <span>{{ lang.t('Игрок', 'Guest') }}</span>
+          </span>
+          <span *ngIf="getPlayerLead() > 0" class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
+            +{{ getPlayerLead() }}
+          </span>
+        </div>
+        <div class="flex flex-wrap gap-1 min-h-[28px] items-center">
+          <span *ngIf="getPlayerCapturedPieces().length === 0" class="text-[10px] text-neutral-500 italic">{{ lang.t('Нет сбитых', 'None yet') }}</span>
+          <div 
+            *ngFor="let item of getGroupedCapturedPieces('player')"
+            class="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] font-bold leading-none shadow-sm select-none transition-all duration-200 hover:scale-105"
+            [class]="item.colorClass"
+            [title]="item.name + ' (Value: ' + item.value + ')'"
+          >
+            <span>{{ item.symbol }}</span>
+            <span class="text-[9px] opacity-75">×{{ item.count }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stockfish (Opponent) Captures -->
+      <div class="space-y-1">
+        <div class="flex items-center justify-between text-[11px] font-medium text-neutral-400">
+          <span class="flex items-center gap-1 select-none">
+            <span>🤖</span>
+            <span>Stockfish</span>
+          </span>
+          <span *ngIf="getOpponentLead() > 0" class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
+            +{{ getOpponentLead() }}
+          </span>
+        </div>
+        <div class="flex flex-wrap gap-1 min-h-[28px] items-center">
+          <span *ngIf="getOpponentCapturedPieces().length === 0" class="text-[10px] text-neutral-500 italic">{{ lang.t('Нет сбитых', 'None yet') }}</span>
+          <div 
+            *ngFor="let item of getGroupedCapturedPieces('opponent')"
+            class="inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] font-bold leading-none shadow-sm select-none transition-all duration-200 hover:scale-105"
+            [class]="item.colorClass"
+            [title]="item.name + ' (Value: ' + item.value + ')'"
+          >
+            <span>{{ item.symbol }}</span>
+            <span class="text-[9px] opacity-75">×{{ item.count }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Engine Overlay (Immediately Visible) -->
+    <div class="mt-5 pt-3 border-t border-neutral-700/50 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] text-neutral-300 font-bold uppercase tracking-wider select-none" [class.opacity-50]="settings?.tournamentMode">
+          {{ lang.t('📊 Оценка и подсказки', '📊 Engine Overlay') }}
+        </span>
+        <button 
+          (click)="toggleEngineOverlay()"
+          [disabled]="settings?.tournamentMode"
+          class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+          [class.bg-blue-500]="engineOverlayEnabled && !settings?.tournamentMode"
+          [class.bg-neutral-700]="!engineOverlayEnabled || settings?.tournamentMode"
+          [class.opacity-40]="settings?.tournamentMode"
+          [class.cursor-not-allowed]="settings?.tournamentMode"
+          role="switch"
+          [attr.aria-checked]="engineOverlayEnabled && !settings?.tournamentMode"
+        >
+          <span 
+            class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+            [class.translate-x-4]="engineOverlayEnabled && !settings?.tournamentMode"
+            [class.translate-x-0]="!engineOverlayEnabled || settings?.tournamentMode"
+          ></span>
+        </button>
+      </div>
+      <div *ngIf="settings?.tournamentMode" class="text-[9px] text-red-400 font-semibold pt-1 border-t border-neutral-800/50 select-none">
+        ⚠️ {{ lang.t('Заблокировано в турнире', 'Locked in Tournament Mode') }}
+      </div>
+      <div *ngIf="engineOverlayEnabled && !settings?.tournamentMode" class="text-[9px] text-neutral-400 pt-1 border-t border-neutral-800/50 select-none animate-fade-in">
+        ⚡ {{ lang.t('Подсказки и стрелки включены', 'Hints and arrows enabled') }}
+      </div>
+    </div>
+
+    <div class="mt-4 space-y-2">
       <button
         (click)="showSettings = !showSettings"
         class="w-full py-1.5 bg-neutral-700 hover:bg-neutral-600 rounded text-white font-medium transition-colors"
       >
-        Board Settings
+        {{ lang.t('Настройки доски', 'Board Settings') }}
       </button>
 
       <div
         *ngIf="showSettings"
         class="p-2 bg-neutral-900 rounded border border-neutral-700 text-[11px]"
       >
-        <label class="text-neutral-400 block mb-1">Board Theme</label>
+        <label class="text-neutral-400 block mb-1">{{ lang.t('Оформление доски', 'Board Theme') }}</label>
         <select
           [(ngModel)]="boardTheme"
           (change)="onThemeChange()"
           class="w-full bg-neutral-800 border border-neutral-600 text-white rounded p-1 mb-2"
         >
-          <option value="default">Default</option>
-          <option value="green">Green</option>
-          <option value="blue">Blue</option>
-          <option value="chess-club">Chess Club</option>
+          <option value="default">{{ lang.t('Стандартная', 'Default') }}</option>
+          <option value="wood">{{ lang.t('Дерево', 'Wood') }}</option>
+          <option value="green">{{ lang.t('Зеленая', 'Green') }}</option>
+          <option value="blue">{{ lang.t('Синяя', 'Blue') }}</option>
+          <option value="chess-club">{{ lang.t('Шахматный клуб', 'Chess Club') }}</option>
           <option value="chessboard-js">Chessboard.js</option>
-          <option value="black-and-white">Black & White</option>
+          <option value="black-and-white">{{ lang.t('Черно-белая', 'Black & White') }}</option>
         </select>
-        
-        <label class="text-neutral-400 block mt-3 mb-1">Analysis Engine Depth</label>
-        <select
-          [(ngModel)]="analysisDepth"
-          class="w-full bg-neutral-800 border border-neutral-600 text-white rounded p-1 mb-2"
-        >
-          <option [ngValue]="4">Speed (Depth 4)</option>
-          <option [ngValue]="8">Normal (Depth 8)</option>
-          <option [ngValue]="12">Deep (Depth 12)</option>
-          <option [ngValue]="15">Master (Depth 15)</option>
-        </select>
+
+        <!-- Stockfish Engine's Time per Move (Depth vs. Speed) Slider -->
+        <div class="mt-3 pt-2 border-t border-neutral-700/50 space-y-1.5">
+          <div class="flex justify-between items-center">
+            <span class="text-neutral-400 font-medium">{{ lang.t('Время размышления', 'Engine Time per Move') }}</span>
+            <span class="text-blue-400 font-mono font-bold">D{{ analysisDepth }}</span>
+          </div>
+          <input
+            type="range"
+            min="5"
+            max="16"
+            step="1"
+            [(ngModel)]="analysisDepth"
+            class="w-full accent-blue-500 cursor-pointer h-1 bg-neutral-700 rounded-lg appearance-none"
+          />
+          <div class="text-[10px] text-neutral-400 leading-tight text-center font-medium mt-1">
+            <span *ngIf="analysisDepth <= 6" class="text-emerald-400">{{ lang.t('⚡ Супербыстро (~0.1с/х)', '⚡ Super Fast (~0.1s/m)') }}</span>
+            <span *ngIf="analysisDepth > 6 && analysisDepth <= 9" class="text-blue-400">{{ lang.t('⚖️ Сбалансировано (~0.3с/х)', '⚖️ Balanced (~0.3s/m)') }}</span>
+            <span *ngIf="analysisDepth > 9 && analysisDepth <= 12" class="text-indigo-400">{{ lang.t('🧠 Глубоко (~0.8с/х)', '🧠 Deep (~0.8s/m)') }}</span>
+            <span *ngIf="analysisDepth > 12" class="text-amber-400 font-semibold">{{ lang.t('👑 Про-мастер (~2.0с/х)', '👑 Pro Master (~2.0s/m)') }}</span>
+          </div>
+        </div>
       </div>
+
+      <!-- Undo Move Button (highlighted when blunder) -->
+      <button
+        (click)="undoMove()"
+        [disabled]="moveHistory.length === 0 || settings?.tournamentMode"
+        class="w-full py-2 px-3 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 mt-2 text-xs border cursor-pointer select-none"
+        [class]="settings?.tournamentMode
+          ? 'bg-neutral-800/50 text-neutral-500 border-neutral-800 cursor-not-allowed opacity-50'
+          : (isLastMoveBlunder && engineOverlayEnabled) 
+            ? 'bg-amber-500 text-neutral-950 hover:bg-amber-400 hover:scale-[1.02] shadow-lg shadow-amber-500/25 border-amber-400 font-bold' 
+            : 'bg-neutral-750 text-neutral-200 hover:bg-neutral-700 border-neutral-700/50 hover:border-neutral-600 hover:text-white disabled:opacity-40 disabled:hover:bg-neutral-750 disabled:hover:text-neutral-200 disabled:hover:scale-100'"
+      >
+        <span class="text-sm leading-none flex items-center justify-center">↩️</span>
+        <span class="leading-none flex items-center justify-center">
+          {{ settings?.tournamentMode ? lang.t('Ходы заблокированы', 'Undos Locked') : lang.t('Отменить ход', 'Undo Move') }}
+        </span>
+      </button>
 
       <button
         *ngIf="!cachedIsGameOver"
         (click)="resign()"
-        class="w-full py-1.5 bg-red-600/80 hover:bg-red-600 rounded text-white font-medium transition-colors mt-2"
+        class="w-full py-1.5 bg-red-650 hover:bg-red-600 rounded text-white font-medium transition-colors mt-2"
       >
-        Resign
+        {{ lang.t('Сдаться', 'Resign') }}
       </button>
       <button
         *ngIf="cachedIsGameOver"
         (click)="goBack.emit()"
         class="w-full py-1.5 bg-neutral-600 hover:bg-neutral-500 rounded text-white font-medium transition-colors mt-2"
       >
-        Back to Setup
+        {{ lang.t('В главное меню', 'Back to Setup') }}
       </button>
       <button
         [disabled]="!cachedIsGameOver"
         (click)="analyze.emit({ history: moveHistory, depth: analysisDepth, precomputedEvaluations: precomputedEvaluations, elo: settings?.difficulty || 1500 })"
         [ngClass]="
           cachedIsGameOver
-            ? 'bg-blue-600 hover:bg-blue-500'
+            ? 'bg-blue-600 hover:bg-blue-500 cursor-pointer'
             : 'bg-neutral-700 opacity-50 cursor-not-allowed'
         "
-        class="w-full py-1.5 rounded text-white font-medium transition-colors"
+        class="w-full py-1.5 rounded text-white font-medium transition-colors mt-2"
       >
-        Analyze Game
+        {{ lang.t('Анализ партии', 'Analyze Game') }}
       </button>
+    </div>
+
+    <!-- Keyboard Shortcuts Help Trigger and Mini List -->
+    <div class="mt-4 pt-3 border-t border-neutral-700/50 space-y-2 select-none">
+      <div class="flex items-center justify-between">
+        <h4 class="font-bold text-[10px] text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
+          <span>⌨️</span>
+          <span>{{ lang.t('Горячие клавиши', 'Keyboard Shortcuts') }}</span>
+        </h4>
+        <button 
+          (click)="showHelpModal = true"
+          class="text-[9px] text-blue-400 hover:text-blue-300 transition-colors font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+        >
+          <span>{{ lang.t('Руководство [H]', 'Show Guide [H]') }}</span>
+          <span>↗</span>
+        </button>
+      </div>
+      <div class="space-y-1.5 text-[10px] text-neutral-400 font-medium">
+        <div class="flex items-center justify-between">
+          <span>{{ lang.t('Предыдущий / Следующий ход', 'Previous / Next move') }}</span>
+          <div class="flex gap-0.5">
+            <kbd class="px-1.5 py-0.5 bg-neutral-900 border border-neutral-700 rounded text-neutral-200 font-mono text-[9px] shadow-sm">A</kbd>
+            <span class="text-neutral-600">/</span>
+            <kbd class="px-1.5 py-0.5 bg-neutral-900 border border-neutral-700 rounded text-neutral-200 font-mono text-[9px] shadow-sm">D</kbd>
+          </div>
+        </div>
+        <div class="flex items-center justify-between" [class.opacity-40]="settings?.tournamentMode">
+          <span>{{ lang.t('Отменить последний ход', 'Undo last move') }}</span>
+          <kbd class="px-1.5 py-0.5 bg-neutral-900 border border-neutral-700 rounded text-neutral-200 font-mono text-[9px] shadow-sm">U</kbd>
+        </div>
+        <div class="flex items-center justify-between" [class.opacity-40]="settings?.tournamentMode">
+          <span>{{ lang.t('Подсказки движка', 'Engine overlay') }}</span>
+          <kbd class="px-1.5 py-0.5 bg-neutral-900 border border-neutral-700 rounded text-neutral-200 font-mono text-[9px] shadow-sm">E</kbd>
+        </div>
+        <div class="flex items-center justify-between text-neutral-500 hover:text-neutral-400 transition-colors cursor-pointer" (click)="showHelpModal = true">
+          <span>{{ lang.t('Нажмите H для просмотра справки...', 'Press H for interactive help guide...') }}</span>
+        </div>
+      </div>
     </div>
   </div>
 
   <!-- Main Board Area (Maximized) -->
-  <div class="w-full flex-shrink-0 mx-auto" style="max-width: min(100%, 720px, calc(100vh - 48px))">
-    <div class="rounded-xl overflow-hidden shadow-2xl relative border border-neutral-700/40">
-      <!-- We will mount cm-chessboard here -->
-      <div #boardContainer style="width: 100%; height: auto"></div>
+  <div class="w-full flex-shrink-0 mx-auto" style="max-width: min(100%, 720px, calc(100vh - 16px))">
+    <div class="flex gap-2 sm:gap-3 items-stretch relative">
+      <!-- Evaluation Bar -->
+      <div *ngIf="engineOverlayEnabled" class="w-5 sm:w-6 bg-neutral-900 rounded-lg overflow-hidden flex flex-col border border-neutral-700/40 relative shrink-0 select-none shadow-2xl">
+        <!-- White Advantage Fill -->
+        <div 
+          [ngStyle]="getEvaluationBarStyles()"
+          class="w-full absolute left-0"
+        ></div>
+        
+        <!-- Center Equal Line (0.0) -->
+        <div class="absolute left-0 right-0 top-1/2 h-[1px] border-t border-dashed border-neutral-500/40 z-10 pointer-events-none"></div>
+        
+        <!-- Evaluation Text Label -->
+        <div 
+          [class]="getEvaluationLabelClasses()"
+          class="absolute text-center text-[9px] sm:text-[10px] tracking-tighter leading-none pointer-events-none z-20 font-mono transition-all duration-300"
+        >
+          {{ getCurrentEvaluationInfo().text }}
+        </div>
+      </div>
 
-      <!-- Loading overlay for engine move -->
-      <div *ngIf="cachedIsEngineTurn && !cachedIsGameOver" class="absolute bottom-3 right-3 flex items-center gap-2 bg-neutral-900/80 px-3 py-1.5 rounded-full z-10 text-xs text-white">
-        <div class="w-2 h-2 bg-white rounded-full animate-bounce"></div>
-        <div class="w-2 h-2 bg-white rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
-        <div class="w-2 h-2 bg-white rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+      <!-- Main Chessboard Wrapper -->
+      <div class="flex-1 rounded-xl overflow-hidden shadow-2xl relative border border-neutral-700/40">
+        <!-- We will mount cm-chessboard here -->
+        <div #boardContainer style="width: 100%; height: auto"></div>
+
+        <!-- Visual Alert Notification -->
+        <div 
+          *ngIf="activeAlert"
+          class="absolute top-4 left-4 right-4 z-30 flex items-center justify-between gap-3 bg-red-950/95 border border-red-500/50 px-4 py-2.5 rounded-xl shadow-2xl text-left"
+          style="animation: alert-fade-slide 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;"
+        >
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="flex items-center justify-center w-8 h-8 rounded-full bg-red-500/20 border border-red-500/40 shrink-0 text-red-400 font-bold text-sm">
+              ⚠️
+            </div>
+            <div class="min-w-0">
+              <h4 class="text-white text-xs font-bold leading-tight tracking-wide truncate">{{ activeAlert.message }}</h4>
+              <p class="text-red-300 text-[10px] leading-tight mt-0.5 font-mono font-medium truncate">{{ activeAlert.subMessage }}</p>
+            </div>
+          </div>
+          <button 
+            (click)="activeAlert = null" 
+            class="text-neutral-400 hover:text-white transition-colors p-1 rounded-md hover:bg-white/5 ml-2 shrink-0"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4.5 h-4.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Loading overlay for engine move -->
+        <div *ngIf="cachedIsEngineTurn && !cachedIsGameOver" class="absolute bottom-3 right-3 flex items-center gap-2 bg-neutral-900/80 px-3 py-1.5 rounded-full z-10 text-xs text-white">
+          <div class="w-2 h-2 bg-white rounded-full animate-bounce"></div>
+          <div class="w-2 h-2 bg-white rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+          <div class="w-2 h-2 bg-white rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Game Board Controls (Step forward / backward) -->
+    <div class="mt-4 bg-neutral-800 border border-neutral-700/50 rounded-xl p-2.5 shadow-lg flex items-center justify-between select-none max-w-full">
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <!-- Go to Start -->
+        <button
+          (click)="goToStart()"
+          [disabled]="currentMoveIndex < 0"
+          class="p-2 text-neutral-400 hover:text-white hover:bg-neutral-700/60 disabled:hover:bg-transparent rounded-lg disabled:opacity-30 transition-all cursor-pointer"
+          title="{{ lang.t('В начало', 'Go to Start') }}"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5" />
+          </svg>
+        </button>
+
+        <!-- Go to Prev -->
+        <button
+          (click)="goToPrev()"
+          [disabled]="currentMoveIndex < 0"
+          class="p-2 text-neutral-400 hover:text-white hover:bg-neutral-700/60 disabled:hover:bg-transparent rounded-lg disabled:opacity-30 transition-all cursor-pointer"
+          title="{{ lang.t('Предыдущий ход', 'Previous Move') }}"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Current Move Status Display -->
+      <div class="font-mono text-xs text-neutral-300 bg-neutral-900/60 border border-neutral-700/30 px-3.5 py-1.5 rounded-lg flex items-center gap-2 select-none">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500" *ngIf="currentMoveIndex === moveHistory.length - 1 && !cachedIsGameOver"></span>
+        <span class="w-1.5 h-1.5 rounded-full bg-neutral-500 animate-pulse" *ngIf="currentMoveIndex !== moveHistory.length - 1"></span>
+        <span class="font-semibold">
+          <ng-container *ngIf="currentMoveIndex >= 0">
+            {{ lang.t('Ход ', 'Move ') }}{{ Math.floor(currentMoveIndex / 2) + 1 }}
+            <span class="text-neutral-400 font-normal">({{ currentMoveIndex % 2 === 0 ? lang.t('Белые', 'White') : lang.t('Черные', 'Black') }})</span>
+          </ng-container>
+          <ng-container *ngIf="currentMoveIndex < 0">
+            {{ lang.t('Начальная позиция', 'Initial Position') }}
+          </ng-container>
+        </span>
+        <span *ngIf="currentMoveIndex !== moveHistory.length - 1" class="text-[10px] text-amber-400 font-semibold bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded uppercase tracking-wider font-sans">
+          {{ lang.t('Просмотр', 'Preview') }}
+        </span>
+      </div>
+
+      <div class="flex items-center gap-1.5 sm:gap-2">
+        <!-- Go to Next -->
+        <button
+          (click)="goToNext()"
+          [disabled]="currentMoveIndex >= moveHistory.length - 1"
+          class="p-2 text-neutral-400 hover:text-white hover:bg-neutral-700/60 disabled:hover:bg-transparent rounded-lg disabled:opacity-30 transition-all cursor-pointer"
+          title="{{ lang.t('Следующий ход', 'Next Move') }}"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </button>
+
+        <!-- Go to End -->
+        <button
+          (click)="goToEnd()"
+          [disabled]="currentMoveIndex >= moveHistory.length - 1"
+          class="p-2 text-neutral-400 hover:text-white hover:bg-neutral-700/60 disabled:hover:bg-transparent rounded-lg disabled:opacity-30 transition-all cursor-pointer"
+          title="{{ lang.t('В конец', 'Go to End') }}"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12l-7.5 7.5M5.25 4.5L12 12l-6.75 7.5" />
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -102,11 +383,11 @@
       *ngIf="cachedIsGameOver"
       class="mt-4 p-4 bg-neutral-800 rounded-lg text-center border border-neutral-700"
     >
-      <h3 class="text-xl font-bold text-white mb-2">Game Over</h3>
-      <p *ngIf="cachedIsCheckmate" class="text-neutral-300">Checkmate!</p>
-      <p *ngIf="cachedIsDraw" class="text-neutral-300">Draw</p>
-      <p *ngIf="resigned" class="text-neutral-300">Player resigned</p>
-      <p *ngIf="timeOut" class="text-neutral-300">Time out - {{ timeOutSide }} lost</p>
+      <h3 class="text-xl font-bold text-white mb-2">{{ lang.t('Игра завершена', 'Game Over') }}</h3>
+      <p *ngIf="cachedIsCheckmate" class="text-neutral-300">{{ lang.t('Мат!', 'Checkmate!') }}</p>
+      <p *ngIf="cachedIsDraw" class="text-neutral-300">{{ lang.t('Ничья', 'Draw') }}</p>
+      <p *ngIf="resigned" class="text-neutral-300">{{ lang.t('Игрок сдался', 'Player resigned') }}</p>
+      <p *ngIf="timeOut" class="text-neutral-300">{{ lang.t('Время вышло - ', 'Time out - ') }}{{ timeOutSide === 'white' ? lang.t('Белые проиграли', 'White lost') : lang.t('Черные проиграли', 'Black lost') }}</p>
     </div>
   </div>
 
@@ -119,8 +400,24 @@
       <div class="flex items-center gap-2">
         <div class="w-8 h-8 bg-neutral-700 rounded flex items-center justify-center text-sm">🤖</div>
         <div>
-          <div class="font-bold text-xs text-white">Stockfish</div>
-          <div class="text-[10px] text-neutral-400">{{ settings.difficulty }} ELO</div>
+          <div class="font-bold text-xs text-white flex items-center gap-2">
+            <span>Stockfish</span>
+            <span *ngIf="getOpponentLead() > 0" class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1 py-0.2 rounded border border-emerald-500/20">
+              +{{ getOpponentLead() }}
+            </span>
+          </div>
+          <div class="text-[10px] text-neutral-400">{{ lang.t('Уровень', 'Level') }} {{ settings?.skillLevel || 8 }} ({{ settings?.difficulty }} ELO)</div>
+          <!-- Captured Pieces display -->
+          <div *ngIf="getOpponentCapturedPieces().length > 0" class="flex flex-wrap items-center gap-1 mt-1.5 select-none">
+            <span 
+              *ngFor="let piece of getOpponentCapturedPieces()" 
+              [class]="piece.colorClass" 
+              class="inline-flex items-center justify-center w-5 h-5 rounded-md bg-neutral-950/40 border border-neutral-800 text-[10px] font-semibold shadow-sm leading-none select-none transition-all hover:scale-110"
+              [title]="piece.type"
+            >
+              {{ piece.symbol }}
+            </span>
+          </div>
         </div>
       </div>
       
@@ -143,10 +440,10 @@
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5 text-amber-500">
           <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-3.75 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
         </svg>
-        <span class="font-bold text-[11px] text-neutral-300 uppercase tracking-wider">Move History</span>
+        <span class="font-bold text-[11px] text-neutral-300 uppercase tracking-wider">{{ lang.t('История ходов', 'Move History') }}</span>
       </div>
       <span class="text-[10px] bg-neutral-900 px-1.5 py-0.5 rounded text-neutral-400 font-mono">
-        {{ moveHistory.length }} {{ moveHistory.length === 1 ? 'ply' : 'plies' }}
+        {{ moveHistory.length }} {{ lang.t(moveHistory.length === 1 ? 'полуход' : (moveHistory.length % 10 >= 2 && moveHistory.length % 10 <= 4 && (moveHistory.length % 100 < 10 || moveHistory.length % 100 >= 20) ? 'полухода' : 'полуходов'), moveHistory.length === 1 ? 'ply' : 'plies') }}
       </span>
     </div>
 
@@ -162,7 +459,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V18ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
           </svg>
         </div>
-        <p class="text-[11px] font-semibold text-neutral-400">No moves played yet</p>
+        <p class="text-[11px] font-semibold text-neutral-400">{{ lang.t('Ходов еще нет', 'No moves played yet') }}</p>
       </div>
 
       <!-- Move Grid -->
@@ -176,25 +473,39 @@
 
             <!-- White Move -->
             <div 
-              [class.bg-blue-600/20]="i === moveHistory.length - 1"
-              [class.border-blue-500/40]="i === moveHistory.length - 1"
-              [class.text-blue-300]="i === moveHistory.length - 1"
-              [class.font-semibold]="i === moveHistory.length - 1"
-              class="px-1.5 py-0.5 rounded hover:bg-neutral-700/50 cursor-pointer transition-all border border-transparent flex items-center gap-1"
+              (click)="selectMove(i)"
+              [class.bg-blue-600/40]="i === currentMoveIndex"
+              [class.border-blue-500/40]="i === currentMoveIndex"
+              [class.text-blue-300]="i === currentMoveIndex"
+              [class.font-semibold]="i === currentMoveIndex"
+              class="px-1.5 py-0.5 rounded hover:bg-neutral-700/50 cursor-pointer transition-all border border-transparent flex items-center justify-between w-full"
             >
-              {{ move.san }}
+              <span>{{ move.san }}</span>
+              <!-- Classification Indicator -->
+              <span *ngIf="getMoveClassification(i) as classif" class="ml-1 flex items-center shrink-0 select-none">
+                <span *ngIf="classif === 'blunder'" class="text-[8px] px-1 py-0.2 bg-red-500/20 text-red-400 border border-red-500/30 rounded font-bold uppercase tracking-wider" title="{{ lang.t('Зевок (??)', 'Blunder (??)') }}">??</span>
+                <span *ngIf="classif === 'mistake'" class="text-[8px] px-1 py-0.2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded font-bold uppercase tracking-wider" title="{{ lang.t('Ошибка (?)', 'Mistake (?)') }}">?</span>
+                <span *ngIf="classif === 'inaccuracy'" class="text-[8px] px-1 py-0.2 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded font-bold uppercase tracking-wider" title="{{ lang.t('Неточность (?!)', 'Inaccuracy (?!)') }}">?!</span>
+              </span>
             </div>
 
             <!-- Black Move -->
             <div 
               *ngIf="moveHistory[i + 1]"
-              [class.bg-blue-600/20]="i + 1 === moveHistory.length - 1"
-              [class.border-blue-500/40]="i + 1 === moveHistory.length - 1"
-              [class.text-blue-300]="i + 1 === moveHistory.length - 1"
-              [class.font-semibold]="i + 1 === moveHistory.length - 1"
-              class="px-1.5 py-0.5 rounded hover:bg-neutral-700/50 cursor-pointer transition-all border border-transparent flex items-center gap-1"
+              (click)="selectMove(i + 1)"
+              [class.bg-blue-600/40]="i + 1 === currentMoveIndex"
+              [class.border-blue-500/40]="i + 1 === currentMoveIndex"
+              [class.text-blue-300]="i + 1 === currentMoveIndex"
+              [class.font-semibold]="i + 1 === currentMoveIndex"
+              class="px-1.5 py-0.5 rounded hover:bg-neutral-700/50 cursor-pointer transition-all border border-transparent flex items-center justify-between w-full"
             >
-              {{ moveHistory[i + 1].san }}
+              <span>{{ moveHistory[i + 1].san }}</span>
+              <!-- Classification Indicator -->
+              <span *ngIf="getMoveClassification(i + 1) as classif" class="ml-1 flex items-center shrink-0 select-none">
+                <span *ngIf="classif === 'blunder'" class="text-[8px] px-1 py-0.2 bg-red-500/20 text-red-400 border border-red-500/30 rounded font-bold uppercase tracking-wider" title="{{ lang.t('Зевок (??)', 'Blunder (??)') }}">??</span>
+                <span *ngIf="classif === 'mistake'" class="text-[8px] px-1 py-0.2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded font-bold uppercase tracking-wider" title="{{ lang.t('Ошибка (?)', 'Mistake (?)') }}">?</span>
+                <span *ngIf="classif === 'inaccuracy'" class="text-[8px] px-1 py-0.2 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded font-bold uppercase tracking-wider" title="{{ lang.t('Неточность (?!)', 'Inaccuracy (?!)') }}">?!</span>
+              </span>
             </div>
 
             <!-- Empty placeholder for Black's move if white just moved -->
@@ -209,8 +520,24 @@
       <div class="flex items-center gap-2">
         <div class="w-8 h-8 bg-neutral-700 rounded flex items-center justify-center text-sm">👤</div>
         <div>
-          <div class="font-bold text-xs text-white">Guest</div>
-          <div class="text-[10px] text-neutral-400">Unrated</div>
+          <div class="font-bold text-xs text-white flex items-center gap-2">
+            <span>{{ lang.t('Игрок', 'Guest') }}</span>
+            <span *ngIf="getPlayerLead() > 0" class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1 py-0.2 rounded border border-emerald-500/20">
+              +{{ getPlayerLead() }}
+            </span>
+          </div>
+          <div class="text-[10px] text-neutral-400">{{ lang.t('Без рейтинга', 'Unrated') }}</div>
+          <!-- Captured Pieces display -->
+          <div *ngIf="getPlayerCapturedPieces().length > 0" class="flex flex-wrap items-center gap-1 mt-1.5 select-none">
+            <span 
+              *ngFor="let piece of getPlayerCapturedPieces()" 
+              [class]="piece.colorClass" 
+              class="inline-flex items-center justify-center w-5 h-5 rounded-md bg-neutral-950/40 border border-neutral-800 text-[10px] font-semibold shadow-sm leading-none select-none transition-all hover:scale-110"
+              [title]="piece.type"
+            >
+              {{ piece.symbol }}
+            </span>
+          </div>
         </div>
       </div>
       
@@ -234,7 +561,7 @@
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
           <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
         </span>
-        <span>Live Match in progress</span>
+        <span>{{ lang.t('Партия продолжается', 'Live Match in progress') }}</span>
       </div>
 
       <div *ngIf="cachedIsGameOver" class="flex flex-col items-center justify-center py-0.5">
@@ -243,12 +570,133 @@
         </div>
         
         <span class="text-[9px] text-neutral-400 font-medium">
-          <span *ngIf="resigned" class="flex items-center gap-1 justify-center">Resigned</span>
-          <span *ngIf="timeOut" class="flex items-center gap-1 justify-center">Time Out</span>
-          <span *ngIf="cachedIsCheckmate" class="flex items-center gap-1 justify-center">Checkmate</span>
-          <span *ngIf="cachedIsDraw" class="flex items-center gap-1 justify-center">Draw</span>
+          <span *ngIf="resigned" class="flex items-center gap-1 justify-center">{{ lang.t('Сдался', 'Resigned') }}</span>
+          <span *ngIf="timeOut" class="flex items-center gap-1 justify-center">{{ lang.t('Время вышло', 'Time Out') }}</span>
+          <span *ngIf="cachedIsCheckmate" class="flex items-center gap-1 justify-center">{{ lang.t('Мат', 'Checkmate') }}</span>
+          <span *ngIf="cachedIsDraw" class="flex items-center gap-1 justify-center">{{ lang.t('Ничья', 'Draw') }}</span>
         </span>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Keyboard Shortcuts Help Overlay Modal -->
+<div 
+  *ngIf="showHelpModal"
+  (click)="showHelpModal = false"
+  class="fixed inset-0 bg-neutral-950/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4 transition-all duration-300"
+>
+  <div 
+    (click)="$event.stopPropagation()"
+    class="bg-neutral-900/95 border border-neutral-800 rounded-2xl max-w-md w-full shadow-2xl relative flex flex-col overflow-hidden"
+  >
+    <!-- Modal Header -->
+    <div class="px-5 py-4 border-b border-neutral-800 flex items-center justify-between bg-neutral-950/50">
+      <div class="flex items-center gap-2">
+        <span class="text-lg">⌨️</span>
+        <div>
+          <h3 class="text-sm font-bold text-white tracking-wide">{{ lang.t('Клавиатурные команды', 'Keyboard Shortcuts') }}</h3>
+          <p class="text-[9px] text-neutral-400 font-mono">{{ lang.t('Доступные быстрые клавиши', 'Available quick keys') }}</p>
+        </div>
+      </div>
+      <button 
+        (click)="showHelpModal = false"
+        class="text-neutral-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/5 cursor-pointer"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Modal Content -->
+    <div class="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+      <!-- Section 1: Navigation -->
+      <div class="space-y-2">
+        <h4 class="text-[10px] font-bold text-neutral-400 uppercase tracking-wider border-b border-neutral-800 pb-1 flex items-center gap-1.5 select-none">
+          <span>🧭</span>
+          <span>{{ lang.t('Навигация по игре', 'Game Navigation') }}</span>
+        </h4>
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between text-xs py-0.5">
+            <span class="text-neutral-300">{{ lang.t('Предыдущий ход', 'Previous move') }}</span>
+            <div class="flex gap-1 items-center">
+              <kbd class="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded text-amber-400 font-mono text-[10px] font-bold shadow-md">←</kbd>
+              <span class="text-neutral-500 text-[9px]">{{ lang.t('или', 'or') }}</span>
+              <kbd class="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded text-amber-400 font-mono text-[10px] font-bold shadow-md">A</kbd>
+            </div>
+          </div>
+          <div class="flex items-center justify-between text-xs py-0.5">
+            <span class="text-neutral-300">{{ lang.t('Следующий ход', 'Next move') }}</span>
+            <div class="flex gap-1 items-center">
+              <kbd class="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded text-amber-400 font-mono text-[10px] font-bold shadow-md">→</kbd>
+              <span class="text-neutral-500 text-[9px]">{{ lang.t('или', 'or') }}</span>
+              <kbd class="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded text-amber-400 font-mono text-[10px] font-bold shadow-md">D</kbd>
+            </div>
+          </div>
+          <div class="flex items-center justify-between text-xs py-0.5">
+            <span class="text-neutral-300">{{ lang.t('В начало партии', 'Go to start') }}</span>
+            <div class="flex gap-1 items-center">
+              <kbd class="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded text-neutral-300 font-mono text-[10px] shadow-md">↑</kbd>
+              <kbd class="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded text-neutral-300 font-mono text-[10px] shadow-md">W</kbd>
+              <kbd class="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded text-neutral-300 font-mono text-[10px] shadow-md">Home</kbd>
+            </div>
+          </div>
+          <div class="flex items-center justify-between text-xs py-0.5">
+            <span class="text-neutral-300">{{ lang.t('В конец партии', 'Go to end') }}</span>
+            <div class="flex gap-1 items-center">
+              <kbd class="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded text-neutral-300 font-mono text-[10px] shadow-md">↓</kbd>
+              <kbd class="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded text-neutral-300 font-mono text-[10px] shadow-md">S</kbd>
+              <kbd class="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded text-neutral-300 font-mono text-[10px] shadow-md">End</kbd>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Actions & Engine -->
+      <div class="space-y-2">
+        <h4 class="text-[10px] font-bold text-neutral-400 uppercase tracking-wider border-b border-neutral-800 pb-1 flex items-center gap-1.5 select-none">
+          <span>⚙️</span>
+          <span>{{ lang.t('Действия и Движок', 'Actions & Engine') }}</span>
+        </h4>
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between text-xs py-0.5" [class.opacity-40]="settings?.tournamentMode">
+            <span class="text-neutral-300">{{ lang.t('Отменить последний ход', 'Undo last move') }}</span>
+            <kbd class="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded text-emerald-400 font-mono text-[10px] font-bold shadow-md">U</kbd>
+          </div>
+          <div class="flex items-center justify-between text-xs py-0.5" [class.opacity-40]="settings?.tournamentMode">
+            <span class="text-neutral-300">{{ lang.t('Переключить подсказки движка', 'Engine overlay') }}</span>
+            <kbd class="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded text-blue-400 font-mono text-[10px] font-bold shadow-md">E</kbd>
+          </div>
+          <div class="flex items-center justify-between text-xs py-0.5">
+            <span class="text-neutral-300">{{ lang.t('Сдаться', 'Resign game') }}</span>
+            <kbd class="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded text-red-400 font-mono text-[10px] font-bold shadow-md">R</kbd>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Modal info -->
+      <div class="space-y-2">
+        <h4 class="text-[10px] font-bold text-neutral-400 uppercase tracking-wider border-b border-neutral-800 pb-1 flex items-center gap-1.5 select-none">
+          <span>📌</span>
+          <span>{{ lang.t('Общие', 'General') }}</span>
+        </h4>
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between text-xs py-0.5">
+            <span class="text-neutral-300">{{ lang.t('Справка по клавишам', 'Toggle help guide') }}</span>
+            <kbd class="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded text-amber-400 font-mono text-[10px] font-bold shadow-md">H</kbd>
+          </div>
+          <div class="flex items-center justify-between text-xs py-0.5">
+            <span class="text-neutral-300">{{ lang.t('Закрыть это окно', 'Close this modal') }}</span>
+            <kbd class="px-1.5 py-0.5 bg-neutral-950 border border-neutral-800 rounded text-neutral-400 font-mono text-[10px] font-bold shadow-md">Esc</kbd>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="px-5 py-3 border-t border-neutral-800 flex items-center justify-center bg-neutral-950/30">
+      <span class="text-[9px] text-neutral-500 text-center font-mono select-none">{{ lang.t('Нажмите H или кликните в стороне, чтобы закрыть', 'Press H or click outside to close') }}</span>
     </div>
   </div>
 </div>

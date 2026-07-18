@@ -127,6 +127,38 @@ export class ChessAudio {
     osc2.start(now);
     osc2.stop(now + 0.25);
   }
+
+  playBlunderAlert() {
+    this.init();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    
+    // A clean, warning-like chime: two high-pitch clean chimes in rapid succession
+    const osc1 = this.ctx.createOscillator();
+    const osc2 = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    
+    osc1.type = 'triangle';
+    osc1.frequency.setValueAtTime(523.25, now); // C5
+    osc1.frequency.exponentialRampToValueAtTime(392.00, now + 0.3); // G4
+    
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(659.25, now + 0.05); // E5
+    osc2.frequency.exponentialRampToValueAtTime(493.88, now + 0.35); // B4
+    
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.2, now + 0.05);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+    
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(this.ctx.destination);
+    
+    osc1.start(now);
+    osc1.stop(now + 0.35);
+    osc2.start(now + 0.05);
+    osc2.stop(now + 0.35);
+  }
 }
 
 export const chessAudio = new ChessAudio();

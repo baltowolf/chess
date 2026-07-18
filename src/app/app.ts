@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Home } from './home/home';
 import { Game } from './game/game';
 import { Analysis } from './analysis/analysis';
+import { language } from './language';
 
 @Component({
   selector: 'app-root',
@@ -11,6 +12,7 @@ import { Analysis } from './analysis/analysis';
   templateUrl: './app.html',
 })
 export class App {
+  lang = language;
   gameState = signal<'setup' | 'playing' | 'analysis'>('setup');
   gameSettings = signal<any>(null);
   gameHistory = signal<any[]>([]);

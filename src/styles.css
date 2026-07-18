@@ -30,3 +30,83 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: rgba(107, 114, 128, 0.8);
 }
+
+/* 🎨 Captured Chess Piece animations & Glowing ripple effects */
+@keyframes piece-captured {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+    filter: drop-shadow(0 0 0px rgba(239, 68, 68, 0));
+  }
+  35% {
+    transform: scale(1.25) rotate(-12deg);
+    opacity: 1;
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.95));
+  }
+  100% {
+    transform: scale(0) rotate(110deg) translateY(-25px);
+    opacity: 0;
+    filter: drop-shadow(0 0 16px rgba(239, 68, 68, 0));
+  }
+}
+
+.piece-capture-overlay {
+  animation: piece-captured 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+@keyframes square-capture-ripple {
+  0% {
+    transform: scale(0.3);
+    opacity: 0.9;
+    stroke: #ef4444;
+    stroke-width: 5px;
+    fill: rgba(239, 68, 68, 0.35);
+  }
+  50% {
+    stroke: #f59e0b;
+    fill: rgba(245, 158, 11, 0.15);
+  }
+  100% {
+    transform: scale(1.65);
+    opacity: 0;
+    stroke: #ef4444;
+    stroke-width: 1px;
+    fill: rgba(239, 68, 68, 0);
+  }
+}
+
+.square-capture-ripple {
+  animation: square-capture-ripple 0.6s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+@keyframes alert-fade-slide {
+  0% {
+    transform: translateY(-12px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* 🎨 Custom Wood Theme for cm-chessboard */
+.cm-chessboard.wood .board .square.white {
+  fill: #f0d9b5;
+}
+.cm-chessboard.wood .board .square.black {
+  fill: #b58863;
+}
+.cm-chessboard.wood .coordinates .coordinate.black {
+  fill: #f0d9b5;
+}
+.cm-chessboard.wood .coordinates .coordinate.white {
+  fill: #b58863;
+}
+
+
+

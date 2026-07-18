@@ -1,8 +1,8 @@
-<div class="flex flex-col md:flex-row h-full w-full max-w-6xl mx-auto gap-4 p-4">
+<div class="flex flex-col md:flex-row h-full w-full max-w-6xl mx-auto gap-3 md:gap-4 p-1.5 md:p-3">
   <!-- Left Column: Back button & Navigation Panel -->
-  <div class="w-full md:w-48 flex flex-col gap-3 flex-shrink-0">
+  <div class="w-full md:w-56 flex flex-col gap-3 flex-shrink-0">
     <div class="bg-gray-800 rounded-xl p-3 shadow-lg border border-gray-700/50 flex flex-col gap-3">
-      <h2 class="text-sm font-bold text-white text-center">Analysis Board</h2>
+      <h2 class="text-sm font-bold text-white text-center">{{ lang.t('Панель анализа', 'Analysis Board') }}</h2>
       
       <!-- Navigation Panel (moved from under the board) -->
       <div class="flex items-center justify-between bg-gray-900/40 rounded-lg p-1 border border-gray-700/30">
@@ -10,7 +10,7 @@
           (click)="goToStart()"
           [disabled]="currentMoveIndex < 0"
           class="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded disabled:opacity-40 transition-colors"
-          title="Go to Start"
+          title="{{ lang.t('В начало', 'Go to Start') }}"
         >
           <lucide-icon [img]="RotateCcw" class="w-4 h-4"></lucide-icon>
         </button>
@@ -18,7 +18,7 @@
           (click)="goToPrev()"
           [disabled]="currentMoveIndex < 0"
           class="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded disabled:opacity-40 transition-colors"
-          title="Previous Move"
+          title="{{ lang.t('Предыдущий ход', 'Previous Move') }}"
         >
           <lucide-icon [img]="ChevronLeft" class="w-4 h-4"></lucide-icon>
         </button>
@@ -34,7 +34,7 @@
           (click)="goToNext()"
           [disabled]="currentMoveIndex >= history.length - 1"
           class="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded disabled:opacity-40 transition-colors"
-          title="Next Move"
+          title="{{ lang.t('Следующий ход', 'Next Move') }}"
         >
           <lucide-icon [img]="ChevronRight" class="w-4 h-4"></lucide-icon>
         </button>
@@ -42,7 +42,7 @@
           (click)="goToEnd()"
           [disabled]="currentMoveIndex >= history.length - 1"
           class="p-1 text-gray-400 hover:text-white hover:bg-gray-700 rounded disabled:opacity-40 transition-colors"
-          title="Go to End"
+          title="{{ lang.t('В конец', 'Go to End') }}"
         >
           <div class="flex -space-x-1">
             <lucide-icon [img]="ChevronRight" class="w-3.5 h-3.5"></lucide-icon>
@@ -51,46 +51,446 @@
         </button>
       </div>
 
+      <!-- Analysis Settings Section -->
+      <div class="border-t border-gray-700/40 pt-2.5 space-y-2.5">
+        <span class="font-bold text-[10px] text-gray-400 uppercase tracking-wider select-none px-1">{{ lang.t('Настройки анализа', 'Analysis Settings') }}</span>
+
+        <!-- Board Theme Switcher -->
+        <div class="space-y-1.5 p-2 bg-gray-900/40 rounded-lg border border-gray-700/30">
+          <div class="flex justify-between items-center">
+            <span class="text-xs text-gray-300 font-medium select-none">{{ lang.t('Тема доски', 'Board Theme') }}</span>
+            <span class="text-[9px] text-gray-500 font-normal select-none">{{ lang.t('Стиль', 'Style') }}</span>
+          </div>
+          <select
+            [(ngModel)]="boardTheme"
+            (change)="onThemeChange()"
+            class="w-full bg-gray-950/80 border border-gray-700/50 text-gray-200 text-xs rounded-lg p-1.5 focus:outline-none focus:border-blue-500/50 cursor-pointer"
+          >
+            <option value="default">{{ lang.t('Стандартная (серая)', 'Default (Grey/Slate)') }}</option>
+            <option value="wood">{{ lang.t('Дерево (клен/орех)', 'Wood (Maple/Walnut)') }}</option>
+            <option value="green">{{ lang.t('Зеленая (трава/шалфей)', 'Green (Grass/Sage)') }}</option>
+            <option value="blue">{{ lang.t('Синяя (океан/небо)', 'Blue (Ocean/Sky)') }}</option>
+            <option value="chess-club">{{ lang.t('Шахматный клуб', 'Chess Club') }}</option>
+            <option value="chessboard-js">Chessboard.js</option>
+            <option value="black-and-white">{{ lang.t('Черно-белая', 'Black & White') }}</option>
+          </select>
+        </div>
+
+        <!-- Engine Overlay Switch -->
+        <div class="p-2 bg-gray-900/40 rounded-lg border border-gray-700/30 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-gray-300 font-medium select-none">{{ lang.t('Подсказки движка', 'Engine Overlay') }}</span>
+            <button 
+              (click)="toggleEngineOverlay()"
+              class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+              [class.bg-blue-500]="engineOverlayEnabled"
+              [class.bg-gray-700]="!engineOverlayEnabled"
+              role="switch"
+              [attr.aria-checked]="engineOverlayEnabled"
+            >
+              <span 
+                class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                [class.translate-x-4]="engineOverlayEnabled"
+                [class.translate-x-0]="!engineOverlayEnabled"
+              ></span>
+            </button>
+          </div>
+          <div *ngIf="engineOverlayEnabled" class="text-[9px] text-gray-400 space-y-1 pt-1 border-t border-gray-800/50 select-none animate-fade-in">
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-1 rounded bg-emerald-500 inline-block"></span>
+              <span>{{ lang.t('Зеленая стрелка: лучший ход по Stockfish', 'Green arrow: Stockfish recommended best move') }}</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <span class="w-2.5 h-1 rounded bg-blue-400 inline-block"></span>
+              <span>{{ lang.t('Синий/Красный: качество сыгранного хода', 'Blue/Red/Orange: Played move quality') }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Engine Depth / Time per Move Control -->
+        <div class="space-y-2 p-2 bg-gray-900/40 rounded-lg border border-gray-700/30">
+          <div class="flex justify-between items-center">
+            <div class="flex flex-col">
+              <span class="text-xs text-gray-300 font-medium select-none">{{ lang.t('Время размышления движка', 'Engine Time per Move') }}</span>
+              <span class="text-[9px] text-gray-500 font-normal select-none">{{ lang.t('Глубина против скорости', 'Depth vs. Speed') }}</span>
+            </div>
+            <span class="text-xs font-bold text-blue-400 font-mono">D{{ depth }}</span>
+          </div>
+          <input
+            id="depth-slider"
+            type="range"
+            min="5"
+            max="16"
+            step="1"
+            [(ngModel)]="depth"
+            (change)="onDepthChange()"
+            class="w-full accent-blue-500 cursor-pointer h-1 bg-gray-700 rounded-lg appearance-none"
+          />
+          <div class="text-[10px] text-gray-400 leading-tight text-center font-medium">
+            <span *ngIf="depth <= 6" class="text-emerald-400">{{ lang.t('⚡ Супербыстро (~0.1с/х)', '⚡ Super Fast (~0.1s/m)') }}</span>
+            <span *ngIf="depth > 6 && depth <= 9" class="text-blue-400">{{ lang.t('⚖️ Сбалансировано (~0.3с/х)', '⚖️ Balanced (~0.3s/m)') }}</span>
+            <span *ngIf="depth > 9 && depth <= 12" class="text-indigo-400">{{ lang.t('🧠 Глубоко (~0.8с/х)', '🧠 Deep (~0.8s/m)') }}</span>
+            <span *ngIf="depth > 12" class="text-amber-400 font-semibold">{{ lang.t('👑 Про-мастер (~2.0с/х)', '👑 Pro Master (~2.0s/m)') }}</span>
+          </div>
+        </div>
+      </div>
+
+      <button
+        (click)="downloadPgn()"
+        [disabled]="!history || history.length === 0"
+        class="w-full py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-all duration-200 font-medium text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98]"
+      >
+        <lucide-icon [img]="Download" class="w-3.5 h-3.5"></lucide-icon>
+        <span>{{ lang.t('Скачать PGN', 'Download PGN') }}</span>
+      </button>
+
       <button
         (click)="goBack.emit()"
-        class="w-full py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 font-medium text-xs"
+        class="w-full py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors duration-200 font-medium text-xs mb-2"
       >
-        Exit Analysis
+        {{ lang.t('Выйти из анализа', 'Exit Analysis') }}
       </button>
+
+      <!-- Keyboard Shortcuts Help Trigger and Mini List -->
+      <div class="p-2 bg-gray-900/40 rounded-lg border border-gray-700/30 space-y-1.5 select-none text-[10px]">
+        <div class="flex items-center justify-between">
+          <h4 class="font-bold text-[9px] text-gray-400 uppercase tracking-wider flex items-center gap-1">
+            <span>⌨️</span>
+            <span>{{ lang.t('Горячие клавиши', 'Keyboard Shortcuts') }}</span>
+          </h4>
+          <button 
+            (click)="showHelpModal = true"
+            class="text-[9px] text-blue-400 hover:text-blue-300 transition-colors font-semibold flex items-center gap-0.5 hover:underline cursor-pointer"
+          >
+            <span>{{ lang.t('Справка [H]', 'Guide [H]') }}</span>
+            <span>↗</span>
+          </button>
+        </div>
+        <div class="space-y-1 text-gray-400 font-medium">
+          <div class="flex items-center justify-between">
+            <span>{{ lang.t('Предыдущий / Следующий ход', 'Prev / Next move') }}</span>
+            <div class="flex gap-0.5">
+              <kbd class="px-1 py-0.2 bg-gray-950 border border-gray-800 rounded text-gray-200 font-mono text-[9px] shadow-sm">A</kbd>
+              <span class="text-gray-600">/</span>
+              <kbd class="px-1 py-0.2 bg-gray-950 border border-gray-800 rounded text-gray-200 font-mono text-[9px] shadow-sm">D</kbd>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>{{ lang.t('Подсказки движка', 'Engine overlay') }}</span>
+            <kbd class="px-1 py-0.2 bg-gray-950 border border-gray-800 rounded text-gray-200 font-mono text-[9px] shadow-sm">E</kbd>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>{{ lang.t('ИИ Тренер', 'AI Coach overlay') }}</span>
+            <kbd class="px-1 py-0.2 bg-gray-950 border border-gray-800 rounded text-gray-200 font-mono text-[9px] shadow-sm">L</kbd>
+          </div>
+          <div class="flex items-center justify-between text-gray-500 hover:text-gray-400 transition-colors cursor-pointer" (click)="showHelpModal = true">
+            <span>{{ lang.t('Нажмите H для просмотра справки...', 'Press H for shortcuts help...') }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Move History list with significant centipawn loss indicators -->
+    <div class="bg-gray-800 rounded-xl p-3 shadow-lg border border-gray-700/50 flex flex-col gap-2 min-h-[220px] max-h-[380px] overflow-hidden">
+      <div class="flex items-center justify-between pb-1.5 border-b border-gray-700/40 select-none">
+        <span class="font-bold text-[10px] text-gray-300 uppercase tracking-wider">{{ lang.t('История ходов', 'Move History') }}</span>
+        <span class="text-[9px] bg-gray-900 px-1.5 py-0.5 rounded text-gray-400 font-mono">
+          {{ history.length }} {{ lang.t(history.length === 1 ? 'полуход' : (history.length % 10 >= 2 && history.length % 10 <= 4 && (history.length % 100 < 10 || history.length % 100 >= 20) ? 'полухода' : 'полуходов'), history.length === 1 ? 'ply' : 'plies') }}
+        </span>
+      </div>
+
+      <!-- Scrollable Move List -->
+      <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-[140px]">
+        <!-- Empty state -->
+        <div *ngIf="history.length === 0" class="h-full flex flex-col items-center justify-center text-center p-4">
+          <p class="text-[10px] text-gray-400">{{ lang.t('Ходов еще нет', 'No moves played') }}</p>
+        </div>
+
+        <!-- Move Grid -->
+        <div *ngIf="history.length > 0" class="grid grid-cols-[24px_1fr_1fr] gap-x-1 gap-y-0.5 text-[11px] font-mono text-gray-300">
+          <ng-container *ngFor="let move of history; let i = index">
+            <ng-container *ngIf="i % 2 === 0">
+              <!-- Move number -->
+              <div class="flex items-center justify-end text-gray-500 text-[10px] pr-1 py-0.5 font-medium select-none">
+                {{ (i / 2) + 1 }}.
+              </div>
+
+              <!-- White Move -->
+              <div 
+                (click)="selectMove(i)"
+                [class.bg-blue-600/30]="i === currentMoveIndex"
+                [class.border-blue-500/40]="i === currentMoveIndex"
+                [class.text-blue-300]="i === currentMoveIndex"
+                [class.font-semibold]="i === currentMoveIndex"
+                class="px-1.5 py-0.5 rounded hover:bg-gray-700/50 cursor-pointer transition-all border border-transparent flex items-center justify-between w-full"
+              >
+                <span>{{ move.san }}</span>
+                <!-- Classification Indicator -->
+                <span *ngIf="getMoveClassification(i) as classif" class="ml-1 flex items-center gap-1 shrink-0 select-none">
+                  <span *ngIf="classif === 'blunder'" class="text-[8px] px-1 py-0.2 bg-red-500/20 text-red-400 border border-red-500/30 rounded font-bold uppercase tracking-wider" title="{{ lang.t('Зевок (??)', 'Blunder (??)') }}">??</span>
+                  <span *ngIf="classif === 'mistake'" class="text-[8px] px-1 py-0.2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded font-bold uppercase tracking-wider" title="{{ lang.t('Ошибка (?)', 'Mistake (?)') }}">?</span>
+                  <span *ngIf="classif === 'inaccuracy'" class="text-[8px] px-1 py-0.2 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded font-bold uppercase tracking-wider" title="{{ lang.t('Неточность (?!)', 'Inaccuracy (?!)') }}">?!</span>
+                  
+                  <button 
+                    (click)="explainMoveFromList($event, i)" 
+                    class="p-0.5 rounded bg-blue-500/10 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 transition-all border border-blue-500/20"
+                    title="{{ lang.t('Объяснить этот ход ИИ', 'Explain this move with AI') }}"
+                  >
+                    <lucide-icon [img]="Lightbulb" class="w-2.5 h-2.5"></lucide-icon>
+                  </button>
+                </span>
+              </div>
+
+              <!-- Black Move -->
+              <div 
+                *ngIf="history[i + 1]"
+                (click)="selectMove(i + 1)"
+                [class.bg-blue-600/30]="i + 1 === currentMoveIndex"
+                [class.border-blue-500/40]="i + 1 === currentMoveIndex"
+                [class.text-blue-300]="i + 1 === currentMoveIndex"
+                [class.font-semibold]="i + 1 === currentMoveIndex"
+                class="px-1.5 py-0.5 rounded hover:bg-gray-700/50 cursor-pointer transition-all border border-transparent flex items-center justify-between w-full"
+              >
+                <span>{{ history[i + 1].san }}</span>
+                <!-- Classification Indicator -->
+                <span *ngIf="getMoveClassification(i + 1) as classif" class="ml-1 flex items-center gap-1 shrink-0 select-none">
+                  <span *ngIf="classif === 'blunder'" class="text-[8px] px-1 py-0.2 bg-red-500/20 text-red-400 border border-red-500/30 rounded font-bold uppercase tracking-wider" title="{{ lang.t('Зевок (??)', 'Blunder (??)') }}">??</span>
+                  <span *ngIf="classif === 'mistake'" class="text-[8px] px-1 py-0.2 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded font-bold uppercase tracking-wider" title="{{ lang.t('Ошибка (?)', 'Mistake (?)') }}">?</span>
+                  <span *ngIf="classif === 'inaccuracy'" class="text-[8px] px-1 py-0.2 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded font-bold uppercase tracking-wider" title="{{ lang.t('Неточность (?!)', 'Inaccuracy (?!)') }}">?!</span>
+                  
+                  <button 
+                    (click)="explainMoveFromList($event, i + 1)" 
+                    class="p-0.5 rounded bg-blue-500/10 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 transition-all border border-blue-500/20"
+                    title="{{ lang.t('Объяснить этот ход ИИ', 'Explain this move with AI') }}"
+                  >
+                    <lucide-icon [img]="Lightbulb" class="w-2.5 h-2.5"></lucide-icon>
+                  </button>
+                </span>
+              </div>
+
+              <!-- Empty placeholder for Black's move if white just moved -->
+              <div *ngIf="!history[i + 1]" class="px-1.5 py-0.5"></div>
+            </ng-container>
+          </ng-container>
+        </div>
+      </div>
     </div>
   </div>
 
   <!-- Middle Column: Maximized Chessboard & Scrollable Chart underneath -->
-  <div class="flex-1 flex flex-col items-center gap-4">
+  <div class="flex-1 flex flex-col items-center gap-4 w-full">
+    <!-- Sleek Board Header (Replaces the huge opening panel) -->
+    <div class="w-full max-w-[720px] flex items-center justify-between px-1 select-none">
+      <!-- Left side: Opening & Move Info -->
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="text-xs font-bold text-gray-300">
+          {{ lang.t('Ход ', 'Move ') }}{{ getMoveNumber() }}{{ getIsWhiteToMove() ? lang.t(' (Белые)', ' (White)') : lang.t(' (Черные)', ' (Black)') }}
+        </span>
+        <span class="text-gray-600 text-xs">|</span>
+        <span *ngIf="getCurrentOpening() as opening" class="text-[10px] font-semibold text-gray-400 truncate max-w-[180px] sm:max-w-[320px]" [title]="opening.nameRu">
+          {{ opening.nameRu }}
+        </span>
+        <span *ngIf="!getCurrentOpening() && history.length > 0" class="text-[10px] text-gray-500 italic">
+          {{ lang.t('Пользовательская линия', 'Custom Line') }}
+        </span>
+      </div>
+
+      <!-- Right side: AI Coach Button -->
+      <button
+        (click)="triggerAiExplanationOnBoard()"
+        class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold rounded-lg text-xs transition-all duration-200 flex items-center gap-1.5 shadow-md hover:shadow-amber-500/10 cursor-pointer group active:scale-95"
+        title="{{ lang.t('Объяснить этот ход ИИ', 'Explain this move with AI') }}"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" 
+             class="w-3.5 h-3.5 text-gray-950 group-hover:scale-110 transition-transform"
+             [class.animate-pulse]="currentMoveAiLoading">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 18a3.75 3.75 0 0 0 .495-7.467 5.99 5.99 0 0 0-1.925 3.546 5.974 5.974 0 0 1-2.133-1A3.75 3.75 0 0 0 12 18Z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 2.25V4.5m5.303.197l-1.591 1.591M21.75 12h-2.25m-.197 5.303l-1.591-1.591M12 21.75V19.5m-5.303-.197l1.591-1.591M2.25 12h2.25m.197-5.303l1.591 1.591" />
+        </svg>
+        <span>{{ lang.t('Разбор ИИ', 'AI Explain') }}</span>
+      </button>
+    </div>
+
+    <!-- Preview Mode Active Banner -->
+    <div *ngIf="previewFen" class="w-full max-w-[720px] bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center justify-between text-xs animate-fade-in select-none">
+      <div class="flex items-center gap-2 text-amber-400 font-medium">
+        <span class="animate-pulse">👁️</span>
+        <span>{{ lang.t('Режим просмотра хода (кликните еще раз для сброса)', 'Preview Mode (click recommendation again to reset)') }}</span>
+      </div>
+      <button 
+        (click)="clearPreview(); updateBoard();"
+        class="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold rounded transition-all cursor-pointer active:scale-95"
+      >
+        {{ lang.t('Вернуться', 'Reset') }}
+      </button>
+    </div>
+
     <!-- Board container (Expanded to match gameplay) -->
-    <div class="w-full aspect-square rounded-xl overflow-hidden shadow-2xl relative mx-auto border border-gray-700/30 shrink-0" style="max-width: min(100%, 720px, calc(100vh - 48px))">
+    <div class="w-full aspect-square rounded-xl overflow-hidden shadow-2xl relative mx-auto border border-gray-700/30 shrink-0" style="max-width: min(100%, 720px, calc(100vh - 16px))">
       <div #boardContainer class="w-full h-full"></div>
     </div>
 
-    <!-- Evaluation Chart (placed below the fold) -->
-    <div class="w-full max-w-[720px] h-[110px] bg-gray-800 rounded-xl overflow-hidden shadow-lg border border-gray-700/50 cursor-pointer relative shrink-0 animate-fade-in" (click)="onChartClick($event)">
-       <svg #chartSvg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 600 200" class="w-full h-full block relative z-10">
-          <!-- Centerline -->
-          <line x1="0" y1="100" x2="600" y2="100" stroke="#4a5568" stroke-width="1" />
-          <!-- Advantage path -->
-          <path [attr.d]="chartPoints" fill="rgba(66, 153, 225, 0.4)" stroke="#3182ce" stroke-width="2" />
-
-          <!-- Current move indicator -->
-          <line *ngIf="evaluations.length > 0 && currentMoveIndex >= -1"
-                [attr.x1]="((currentMoveIndex + 1) / Math.max(1, evaluations.length - 1)) * 600"
-                y1="0"
-                [attr.x2]="((currentMoveIndex + 1) / Math.max(1, evaluations.length - 1)) * 600"
-                y2="200"
-                stroke="#fc8181"
-                stroke-width="2" />
-       </svg>
+    <!-- Evaluation Chart (Recharts) -->
+    <div [class.hidden]="!engineOverlayEnabled" class="w-full max-w-[720px] h-[180px] bg-gray-800 rounded-xl overflow-hidden shadow-lg border border-gray-700/50 p-3.5 relative shrink-0 animate-fade-in flex flex-col justify-between">
+       <div #rechartsContainer class="w-full h-full relative z-10"></div>
        
        <div class="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 bg-gray-900/85 rounded font-mono font-bold text-white z-20 shadow text-xs border border-gray-700/50">
          <span>{{ getCurrentEvalString() || '...' }}</span>
-         <span *ngIf="isCurrentMoveTablebase()" class="flex items-center text-[9px] uppercase font-semibold tracking-wider text-amber-400 bg-amber-400/10 px-1 py-0.5 rounded border border-amber-400/20" title="Perfect Syzygy 7-piece Tablebase Evaluation">
+         <span *ngIf="isCurrentMoveTablebase()" class="flex items-center text-[9px] uppercase font-semibold tracking-wider text-amber-400 bg-amber-400/10 px-1 py-0.5 rounded border border-amber-400/20" title="{{ lang.t('Идеальная 7-фигурная база эндшпилей Syzygy', 'Perfect Syzygy 7-piece Tablebase Evaluation') }}">
            TB
          </span>
        </div>
+
+       <!-- Small opening indicator on the chart -->
+       <div *ngIf="getGameOpening() as gameOpening" class="absolute top-2 right-2 max-w-[65%] text-right z-20 pointer-events-none select-none">
+         <div class="text-[10px] font-bold text-gray-300 truncate drop-shadow" [title]="gameOpening.nameRu + ' (' + gameOpening.eco + ')'">
+           🏆 {{ gameOpening.nameRu }} <span class="text-[9px] text-amber-500 font-mono">({{ gameOpening.eco }})</span>
+         </div>
+       </div>
+    </div>
+
+    <!-- Principal Variations (Top 3 Recommended Lines) -->
+    <div *ngIf="engineOverlayEnabled" class="w-full max-w-[720px] bg-gray-800 border border-gray-700/50 rounded-xl p-4 shadow-lg shrink-0 flex flex-col gap-3 animate-fade-in">
+      <div class="flex items-center justify-between border-b border-gray-700/50 pb-2.5">
+        <div class="flex items-center gap-2 text-xs font-bold text-gray-200 uppercase tracking-wider select-none">
+          <span>📊 {{ lang.t('Лучшие варианты движка', 'Top Engine Lines') }}</span>
+          <span *ngIf="pvsLoading" class="inline-flex h-2.5 w-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+        </div>
+        <div class="text-[10px] text-gray-400 font-medium">{{ lang.t('Глубина', 'Depth') }} {{ depth }}</div>
+      </div>
+
+      <!-- Loading State -->
+      <div *ngIf="pvsLoading && pvsList.length === 0" class="flex flex-col items-center justify-center py-4 gap-2">
+        <div class="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <span class="text-[11px] text-gray-400 font-mono">{{ lang.t('Stockfish анализирует позицию...', 'Stockfish is thinking...') }}</span>
+      </div>
+
+      <!-- Error State -->
+      <div *ngIf="pvsError && !pvsLoading" class="text-center py-2 text-xs text-red-400">
+        {{ pvsError }}
+      </div>
+
+      <!-- Lines List -->
+      <div *ngIf="pvsList.length > 0" class="flex flex-col gap-2.5">
+        <div
+          *ngFor="let pv of pvsList; let idx = index"
+          (click)="previewPvMove(pv)"
+          class="flex items-start gap-3 p-2.5 bg-gray-900/40 hover:bg-gray-900/70 border rounded-lg transition-all cursor-pointer group active:scale-[0.99]"
+          [class.border-amber-500/50]="isPvPreviewed(pv)"
+          [class.bg-amber-500/5]="isPvPreviewed(pv)"
+          [class.border-gray-700/30]="!isPvPreviewed(pv)"
+        >
+          <!-- Rank & Move Badge -->
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="text-[10px] font-bold font-mono text-gray-500 bg-gray-900 px-1.5 py-0.5 rounded border border-gray-800">
+              #{{ idx + 1 }}
+            </span>
+            <span class="text-xs font-bold px-2 py-0.5 rounded font-mono shadow-sm select-none"
+              [class.bg-emerald-500/15]="idx === 0"
+              [class.text-emerald-400]="idx === 0"
+              [class.border]="idx === 0"
+              [class.border-emerald-500/20]="idx === 0"
+              [class.bg-blue-500/15]="idx > 0"
+              [class.text-blue-400]="idx > 0"
+              [class.border]="idx > 0"
+              [class.border-blue-500/20]="idx > 0"
+            >
+              {{ pv.move }}
+            </span>
+          </div>
+
+          <!-- Continuation Sequence -->
+          <div class="flex-1 min-w-0 flex flex-col justify-center">
+            <div class="text-[11px] font-mono text-gray-300 truncate tracking-wide" [title]="formatPvContinuation(pv)">
+              {{ formatPvContinuation(pv) }}
+            </div>
+          </div>
+
+          <!-- Evaluation pill -->
+          <div class="shrink-0 text-right">
+            <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded border shadow-sm select-none"
+              [class.bg-emerald-950/40]="pv.eval > 0 || (pv.mate !== null && pv.mate > 0)"
+              [class.text-emerald-400]="pv.eval > 0 || (pv.mate !== null && pv.mate > 0)"
+              [class.border-emerald-500/20]="pv.eval > 0 || (pv.mate !== null && pv.mate > 0)"
+              [class.bg-red-950/40]="pv.eval < 0 || (pv.mate !== null && pv.mate < 0)"
+              [class.text-red-400]="pv.eval < 0 || (pv.mate !== null && pv.mate < 0)"
+              [class.border-red-500/20]="pv.eval < 0 || (pv.mate !== null && pv.mate < 0)"
+              [class.bg-gray-900]="pv.eval === 0 && pv.mate === null"
+              [class.text-gray-400]="pv.eval === 0 && pv.mate === null"
+              [class.border-gray-800]="pv.eval === 0 && pv.mate === null"
+            >
+              {{ formatPvEval(pv) }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Advantage Swings Quick-Jump Bar -->
+    <div *ngIf="engineOverlayEnabled && getAdvantageSwings().length > 0" class="w-full max-w-[720px] bg-gray-800 border border-gray-700/50 rounded-xl p-3 shadow-lg shrink-0 flex flex-col gap-2 animate-fade-in">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider select-none">
+          <span>{{ lang.t('⚡ Переломные моменты', '⚡ Advantage Swings') }}</span>
+          <span class="px-1.5 py-0.2 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-mono font-bold">{{ getAdvantageSwings().length }}</span>
+        </div>
+        <span class="text-[9px] text-gray-500 select-none">{{ lang.t('Нажмите для перехода к ключевому моменту', 'Click to jump to critical moments') }}</span>
+      </div>
+      
+      <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+        <button
+          *ngFor="let swing of getAdvantageSwings()"
+          (click)="selectMove(swing.index)"
+          class="flex items-center gap-2 px-2.5 py-1.5 bg-gray-900/50 hover:bg-gray-900 border text-left rounded-lg transition-all shrink-0 cursor-pointer text-xs group"
+          [class.border-red-500/30]="swing.type === 'blunder'"
+          [class.border-amber-500/30]="swing.type === 'mistake'"
+          [class.border-indigo-500/30]="swing.type === 'swing'"
+          [class.bg-blue-500/5]="currentMoveIndex === swing.index"
+          [class.border-blue-500/50]="currentMoveIndex === swing.index"
+        >
+          <!-- Indicator color dot -->
+          <span class="relative flex h-2 w-2 shrink-0">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+              [class.bg-red-400]="swing.type === 'blunder'"
+              [class.bg-amber-400]="swing.type === 'mistake'"
+              [class.bg-indigo-400]="swing.type === 'swing'"
+            ></span>
+            <span class="relative inline-flex rounded-full h-2 w-2"
+              [class.bg-red-500]="swing.type === 'blunder'"
+              [class.bg-amber-500]="swing.type === 'mistake'"
+              [class.bg-indigo-500]="swing.type === 'swing'"
+            ></span>
+          </span>
+          
+          <div class="space-y-1">
+            <div class="flex items-center gap-1.5 font-bold text-gray-200">
+              <span class="group-hover:text-blue-400 transition-colors">{{ swing.moveName }}</span>
+              <span class="text-[9px] px-1 py-0.2 rounded font-semibold uppercase tracking-wider"
+                [class.bg-red-500/15]="swing.type === 'blunder'"
+                [class.text-red-400]="swing.type === 'blunder'"
+                [class.bg-amber-500/15]="swing.type === 'mistake'"
+                [class.text-amber-400]="swing.type === 'mistake'"
+                [class.bg-indigo-500/15]="swing.type === 'swing'"
+                [class.text-indigo-400]="swing.type === 'swing'"
+              >
+                {{ lang.isRu() ? swing.typeRu : swing.typeEn }}
+              </span>
+            </div>
+            
+            <div class="text-[10px] text-gray-400 flex items-center gap-1.5 font-sans font-medium flex-wrap">
+              <span class="px-1.5 py-0.2 rounded font-bold uppercase tracking-wider text-[8px]"
+                    [class.bg-blue-500/10]="swing.isPlayer" [class.text-blue-400]="swing.isPlayer"
+                    [class.bg-amber-500/10]="!swing.isPlayer" [class.text-amber-400]="!swing.isPlayer">
+                {{ lang.isRu() ? swing.who : swing.whoEn }}
+              </span>
+              <span class="text-[10px] text-gray-400">
+                ({{ lang.isRu() ? swing.sideName : swing.sideNameEn }})
+              </span>
+              <span class="text-gray-600 font-normal">|</span>
+              <span class="font-mono text-gray-400">{{ swing.evalBefore }} ➔ <span class="font-bold text-white">{{ swing.evalAfter }}</span></span>
+            </div>
+          </div>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -101,7 +501,7 @@
         <div class="p-2 bg-blue-500/10 rounded-lg">
           <lucide-icon [img]="MessageSquare" class="w-4 h-4 text-blue-400"></lucide-icon>
         </div>
-        <h3 class="text-sm font-bold text-white uppercase tracking-wider">AI Coach</h3>
+        <h3 class="text-sm font-bold text-white uppercase tracking-wider">{{ lang.t('ИИ Тренер', 'AI Coach') }}</h3>
       </div>
 
       <!-- Loading State for Stockfish -->
@@ -118,13 +518,13 @@
           
           <div *ngIf="getAnalyzedCount() < history.length + 1">
             <p class="text-xs font-semibold animate-pulse text-blue-400">
-              Evaluating moves... {{ getAnalyzedCount() }} / {{ history.length + 1 }}
+              {{ lang.t('Оценка ходов...', 'Evaluating moves...') }} {{ getAnalyzedCount() }} / {{ history.length + 1 }}
             </p>
           </div>
         </div>
 
         <div class="mt-4 p-3 bg-gray-900/50 rounded-lg border border-gray-700/50 max-w-sm w-full">
-          <p class="text-[9px] text-gray-500 mb-1.5 uppercase tracking-widest font-bold">Chess Fact</p>
+          <p class="text-[9px] text-gray-500 mb-1.5 uppercase tracking-widest font-bold">{{ lang.t('Шахматный факт', 'Chess Fact') }}</p>
           <p class="text-xs text-gray-300 italic">"{{ loadingFacts[currentFactIndex] }}"</p>
         </div>
       </div>
@@ -133,25 +533,272 @@
       <div *ngIf="!isLoading && isAiLoading" class="flex-1 flex flex-col items-center justify-center gap-4 text-gray-400 text-center w-full px-2">
         <div class="w-8 h-8 border-4 border-gray-600 border-t-emerald-500 rounded-full animate-spin mb-1"></div>
         <p class="text-xs font-semibold animate-pulse text-emerald-400">
-          Generating AI insights...
+          {{ lang.t('ИИ анализирует партию...', 'Generating AI insights...') }}
         </p>
       </div>
 
       <!-- Result State -->
-      <div *ngIf="!isLoading && !isAiLoading" class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-        <div class="bg-gray-900/50 rounded-lg p-3 mb-3 border border-gray-700/50 relative group">
-          <!-- Move Info -->
-          <div *ngIf="currentMoveIndex >= 0">
-              <h4 class="text-xs font-bold text-gray-300 mb-2 border-b border-gray-750 pb-1.5 font-mono">
-                  Current Move: {{ history[currentMoveIndex]?.san }}
-              </h4>
+      <div *ngIf="!isLoading && !isAiLoading" class="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-4">
+        <!-- Game-wide Error & Accuracy Scoreboard -->
+        <div *ngIf="statsSummary" class="bg-gray-900/50 p-4 rounded-xl border border-gray-700/40 space-y-4 shadow-lg">
+          <div class="flex items-center justify-between pb-2 border-b border-gray-800">
+            <h4 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5 select-none">
+              <span>📊</span>
+              <span>{{ lang.t('Статистика партии', 'Game Stats') }}</span>
+            </h4>
           </div>
 
-          <!-- Full Game Summary -->
-          <div class="text-gray-300 text-xs leading-relaxed prose prose-invert prose-xs prose-a:text-blue-400 prose-a:cursor-pointer prose-a:no-underline hover:prose-a:underline max-w-none" [innerHTML]="parsedGameAnalysis || gameAnalysis" (click)="onAnalysisClick($event)">
+          <!-- Accuracy Side-by-Side Progress Bars -->
+          <div class="space-y-2">
+            <div class="flex justify-between items-center text-[11px] font-semibold text-gray-300">
+              <span>{{ lang.t('Точность', 'Accuracy') }}</span>
+              <div class="flex gap-4">
+                <span class="text-emerald-400">🤍 {{ statsSummary.accuracyWhite }}%</span>
+                <span class="text-indigo-400">🖤 {{ statsSummary.accuracyBlack }}%</span>
+              </div>
+            </div>
+            <div class="flex h-2.5 rounded-full overflow-hidden bg-gray-800 border border-gray-700/30">
+              <!-- White Accuracy -->
+              <div 
+                class="bg-emerald-500 transition-all duration-500" 
+                [style.width.%]="statsSummary.accuracyWhite"
+                title="White: {{ statsSummary.accuracyWhite }}%">
+              </div>
+              <!-- Divider -->
+              <div class="w-0.5 bg-gray-900"></div>
+              <!-- Black Accuracy -->
+              <div 
+                class="bg-indigo-500 transition-all duration-500" 
+                [style.width.%]="statsSummary.accuracyBlack"
+                title="Black: {{ statsSummary.accuracyBlack }}%">
+              </div>
+            </div>
+          </div>
+
+          <!-- Table of Detailed Metrics -->
+          <div class="text-[11px] space-y-1.5">
+            <!-- Header -->
+            <div class="grid grid-cols-3 text-center text-[10px] font-bold uppercase text-gray-400 tracking-wider pb-1.5 border-b border-gray-800">
+              <div class="text-left">{{ lang.t('Показатель', 'Metric') }}</div>
+              <div class="text-emerald-400 flex items-center justify-center gap-1">🤍 {{ lang.t('Белые', 'White') }}</div>
+              <div class="text-indigo-400 flex items-center justify-center gap-1">🖤 {{ lang.t('Черные', 'Black') }}</div>
+            </div>
+
+            <!-- Average Move Time -->
+            <div class="grid grid-cols-3 text-center py-1.5 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors">
+              <span class="text-left text-gray-300 font-medium flex items-center gap-1.5">
+                <span>⏱️</span> {{ lang.t('Время на ход', 'Avg Time') }}
+              </span>
+              <span class="font-mono text-white font-bold">{{ statsSummary.avgMoveTimeWhite }}s</span>
+              <span class="font-mono text-white font-bold">{{ statsSummary.avgMoveTimeBlack }}s</span>
+            </div>
+
+            <!-- Blunders -->
+            <div class="grid grid-cols-3 text-center py-1.5 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors">
+              <span class="text-left text-red-400 font-medium flex items-center gap-1.5">
+                <span class="bg-red-500/10 px-1 rounded text-[9px] font-bold">??</span> {{ lang.t('Зевки', 'Blunders') }}
+              </span>
+              <span class="font-mono text-red-400 font-bold" [class.opacity-40]="statsSummary.blundersWhite === 0">{{ statsSummary.blundersWhite }}</span>
+              <span class="font-mono text-red-400 font-bold" [class.opacity-40]="statsSummary.blundersBlack === 0">{{ statsSummary.blundersBlack }}</span>
+            </div>
+
+            <!-- Mistakes -->
+            <div class="grid grid-cols-3 text-center py-1.5 border-b border-gray-800/40 hover:bg-gray-800/20 transition-colors">
+              <span class="text-left text-amber-400 font-medium flex items-center gap-1.5">
+                <span class="bg-amber-500/10 px-1.5 rounded text-[9px] font-bold">?</span> {{ lang.t('Ошибки', 'Mistakes') }}
+              </span>
+              <span class="font-mono text-amber-400 font-bold" [class.opacity-40]="statsSummary.mistakesWhite === 0">{{ statsSummary.mistakesWhite }}</span>
+              <span class="font-mono text-amber-400 font-bold" [class.opacity-40]="statsSummary.mistakesBlack === 0">{{ statsSummary.mistakesBlack }}</span>
+            </div>
+
+            <!-- Inaccuracies -->
+            <div class="grid grid-cols-3 text-center py-1.5 hover:bg-gray-800/20 transition-colors">
+              <span class="text-left text-blue-400 font-medium flex items-center gap-1.5">
+                <span class="bg-blue-500/10 px-1 rounded text-[9px] font-bold">?!</span> {{ lang.t('Неточности', 'Inaccuracies') }}
+              </span>
+              <span class="font-mono text-blue-400 font-bold" [class.opacity-40]="statsSummary.inaccuraciesWhite === 0">{{ statsSummary.inaccuraciesWhite }}</span>
+              <span class="font-mono text-blue-400 font-bold" [class.opacity-40]="statsSummary.inaccuraciesBlack === 0">{{ statsSummary.inaccuraciesBlack }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Selected Move Info & AI Analysis -->
+        <div *ngIf="currentMoveIndex >= 0" class="space-y-3">
+          <!-- Move badge + Evaluation shift -->
+          <div class="flex items-center justify-between bg-gray-900/60 px-3 py-2 rounded-lg border border-gray-700/40 font-mono">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-gray-400">{{ (currentMoveIndex % 2 === 0 ? '' : '...') }}{{ Math.floor(currentMoveIndex / 2) + 1 }}.</span>
+              <span class="text-xs font-bold text-white">{{ history[currentMoveIndex]?.san }}</span>
+            </div>
+            
+            <!-- Classification Badge -->
+            <div *ngIf="getMoveClassification(currentMoveIndex) as classification" class="shrink-0 select-none">
+              <span *ngIf="classification === 'blunder'" class="text-[9px] px-2 py-0.5 bg-red-500/20 text-red-400 border border-red-500/30 rounded font-bold uppercase tracking-wider">?? Зевок</span>
+              <span *ngIf="classification === 'mistake'" class="text-[9px] px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded font-bold uppercase tracking-wider">? Ошибка</span>
+              <span *ngIf="classification === 'inaccuracy'" class="text-[9px] px-2 py-0.5 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded font-bold uppercase tracking-wider">?! Точность</span>
+            </div>
+            <div *ngIf="!getMoveClassification(currentMoveIndex)" class="shrink-0 select-none">
+              <span class="text-[9px] px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded font-bold uppercase tracking-wider">★ Отличный ход</span>
+            </div>
+          </div>
+
+          <!-- AI Move Explanation container -->
+          <div class="bg-gray-900/30 rounded-lg p-3 border border-gray-700/40 min-h-[140px] flex flex-col justify-between">
+            <!-- Loader -->
+            <div *ngIf="currentMoveAiLoading" class="flex-1 flex flex-col items-center justify-center py-6 text-center text-gray-400">
+              <div class="w-6 h-6 border-2 border-gray-700 border-t-blue-500 rounded-full animate-spin mb-2"></div>
+              <p class="text-[11px] font-semibold text-blue-400 animate-pulse">ИИ разбирает ошибку...</p>
+            </div>
+
+            <!-- Explain CTA Button State -->
+            <div *ngIf="!currentMoveAiLoading && !currentMoveExplanation && getMoveClassification(currentMoveIndex) as classification" class="flex-1 flex flex-col items-center justify-center text-center p-4 space-y-3">
+              <div class="p-2.5 bg-blue-500/10 rounded-full text-blue-400 border border-blue-500/20">
+                <lucide-icon [img]="Lightbulb" class="w-5 h-5 animate-pulse"></lucide-icon>
+              </div>
+              <div class="space-y-1">
+                <p class="text-xs font-bold text-gray-200">Ход с ошибкой ({{ getMoveClassificationRu(classification) }})</p>
+                <p class="text-[10px] text-gray-400 leading-normal max-w-[220px] mx-auto">Движок считает этот ход неточным или ошибочным. Нажмите кнопку ниже, чтобы ИИ объяснил причину зевка.</p>
+              </div>
+              <button
+                (click)="loadMoveExplanation(currentMoveIndex, true)"
+                class="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all duration-200 font-bold text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-[0.98] cursor-pointer"
+              >
+                <lucide-icon [img]="Lightbulb" class="w-3.5 h-3.5"></lucide-icon>
+                <span>Объяснить этот ход ИИ</span>
+              </button>
+            </div>
+
+            <!-- Content -->
+            <div *ngIf="!currentMoveAiLoading && currentMoveExplanation">
+              <div class="text-gray-200 text-xs leading-relaxed prose prose-invert prose-xs prose-a:text-blue-400 prose-a:cursor-pointer prose-a:no-underline hover:prose-a:underline max-w-none" [innerHTML]="parsedMoveExplanation || currentMoveExplanation" (click)="onAnalysisClick($event)">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Start/Empty State -->
+        <div *ngIf="currentMoveIndex < 0" class="flex flex-col items-center justify-center text-center p-6 bg-gray-900/30 rounded-lg border border-gray-700/40">
+          <p class="text-xs text-gray-400 mb-1.5 font-semibold">Начальная позиция</p>
+          <p class="text-[10px] text-gray-500 leading-normal">Используйте стрелки или кликните по ходу в истории, чтобы увидеть подробный тактический ИИ-разбор ошибок.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Keyboard Shortcuts Help Overlay Modal -->
+<div 
+  *ngIf="showHelpModal"
+  (click)="showHelpModal = false"
+  class="fixed inset-0 bg-gray-950/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4 transition-all duration-300 animate-fade-in"
+>
+  <div 
+    (click)="$event.stopPropagation()"
+    class="bg-gray-900/95 border border-gray-800 rounded-2xl max-w-md w-full shadow-2xl relative flex flex-col overflow-hidden"
+  >
+    <!-- Modal Header -->
+    <div class="px-5 py-4 border-b border-gray-800 flex items-center justify-between bg-gray-950/50">
+      <div class="flex items-center gap-2">
+        <span class="text-lg">⌨️</span>
+        <div>
+          <h3 class="text-sm font-bold text-white tracking-wide">{{ lang.t('Клавиатурные команды', 'Keyboard Shortcuts') }}</h3>
+          <p class="text-[9px] text-gray-400 font-mono">{{ lang.t('Доступные быстрые клавиши', 'Available quick keys') }}</p>
+        </div>
+      </div>
+      <button 
+        (click)="showHelpModal = false"
+        class="text-gray-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/5 cursor-pointer"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Modal Content -->
+    <div class="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+      <!-- Section 1: Navigation -->
+      <div class="space-y-2">
+        <h4 class="text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-800 pb-1 flex items-center gap-1.5 select-none">
+          <span>🧭</span>
+          <span>{{ lang.t('Навигация по партии', 'Analysis Navigation') }}</span>
+        </h4>
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between text-xs py-0.5">
+            <span class="text-gray-300">{{ lang.t('Предыдущий ход', 'Previous move') }}</span>
+            <div class="flex gap-1 items-center">
+              <kbd class="px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded text-amber-400 font-mono text-[10px] font-bold shadow-md">←</kbd>
+              <span class="text-gray-500 text-[9px]">{{ lang.t('или', 'or') }}</span>
+              <kbd class="px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded text-amber-400 font-mono text-[10px] font-bold shadow-md">A</kbd>
+            </div>
+          </div>
+          <div class="flex items-center justify-between text-xs py-0.5">
+            <span class="text-gray-300">{{ lang.t('Следующий ход', 'Next move') }}</span>
+            <div class="flex gap-1 items-center">
+              <kbd class="px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded text-amber-400 font-mono text-[10px] font-bold shadow-md">→</kbd>
+              <span class="text-gray-500 text-[9px]">{{ lang.t('или', 'or') }}</span>
+              <kbd class="px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded text-amber-400 font-mono text-[10px] font-bold shadow-md">D</kbd>
+            </div>
+          </div>
+          <div class="flex items-center justify-between text-xs py-0.5">
+            <span class="text-gray-300">{{ lang.t('В начало анализа', 'Go to start') }}</span>
+            <div class="flex gap-1 items-center">
+              <kbd class="px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded text-gray-300 font-mono text-[10px] shadow-md">↑</kbd>
+              <kbd class="px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded text-gray-300 font-mono text-[10px] shadow-md">W</kbd>
+              <kbd class="px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded text-gray-300 font-mono text-[10px] shadow-md">Home</kbd>
+            </div>
+          </div>
+          <div class="flex items-center justify-between text-xs py-0.5">
+            <span class="text-gray-300">{{ lang.t('В конец анализа', 'Go to end') }}</span>
+            <div class="flex gap-1 items-center">
+              <kbd class="px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded text-gray-300 font-mono text-[10px] shadow-md">↓</kbd>
+              <kbd class="px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded text-gray-300 font-mono text-[10px] shadow-md">S</kbd>
+              <kbd class="px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded text-gray-300 font-mono text-[10px] shadow-md">End</kbd>
+            </div>
           </div>
         </div>
       </div>
+
+      <!-- Section 2: Actions & Engine -->
+      <div class="space-y-2">
+        <h4 class="text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-800 pb-1 flex items-center gap-1.5 select-none">
+          <span>⚙️</span>
+          <span>{{ lang.t('Действия и Анализ', 'Actions & Analysis') }}</span>
+        </h4>
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between text-xs py-0.5">
+            <span class="text-gray-300">{{ lang.t('Переключить подсказки движка', 'Engine overlay') }}</span>
+            <kbd class="px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded text-blue-400 font-mono text-[10px] font-bold shadow-md">E</kbd>
+          </div>
+          <div class="flex items-center justify-between text-xs py-0.5">
+            <span class="text-gray-300">{{ lang.t('Совет тренера ИИ', 'AI Coach on board') }}</span>
+            <kbd class="px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded text-emerald-400 font-mono text-[10px] font-bold shadow-md">L</kbd>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Modal info -->
+      <div class="space-y-2">
+        <h4 class="text-[10px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-800 pb-1 flex items-center gap-1.5 select-none">
+          <span>📌</span>
+          <span>{{ lang.t('Общие', 'General') }}</span>
+        </h4>
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between text-xs py-0.5">
+            <span class="text-gray-300">{{ lang.t('Справка по клавишам', 'Toggle help guide') }}</span>
+            <kbd class="px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded text-amber-400 font-mono text-[10px] font-bold shadow-md">H</kbd>
+          </div>
+          <div class="flex items-center justify-between text-xs py-0.5">
+            <span class="text-gray-300">{{ lang.t('Закрыть это окно', 'Close this modal') }}</span>
+            <kbd class="px-1.5 py-0.5 bg-gray-950 border border-gray-800 rounded text-neutral-400 font-mono text-[10px] font-bold shadow-md">Esc</kbd>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="px-5 py-3 border-t border-gray-800 flex items-center justify-center bg-gray-950/30">
+      <span class="text-[9px] text-gray-500 text-center font-mono select-none">{{ lang.t('Нажмите H или кликните в стороне, чтобы закрыть', 'Press H or click outside to close') }}</span>
     </div>
   </div>
 </div>

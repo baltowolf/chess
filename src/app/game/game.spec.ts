@@ -1,23 +1,54 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import '@angular/compiler';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Game } from './game';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { vi } from 'vitest';
 
-vi.mock('cm-chessboard', () => ({ Chessboard: vi.fn().mockImplementation(function() { return { destroy: vi.fn(), enableMoveInput: vi.fn(), setPosition: vi.fn() }; }), COLOR: { white: 'w', black: 'b' }, INPUT_EVENT_TYPE: {} }));
+vi.mock('cm-chessboard', () => ({
+  Chessboard: vi.fn().mockImplementation(function() {
+    return {
+      destroy: vi.fn(),
+      enableMoveInput: vi.fn(),
+      setPosition: vi.fn()
+    };
+  }),
+  COLOR: { white: 'w', black: 'b' },
+  INPUT_EVENT_TYPE: {}
+}));
 
 describe('Game', () => {
   let component: Game;
-  let fixture: ComponentFixture<Game>;
+  let cdrMock: any;
+  let ngZoneMock: any;
+  let mockWebSocket: any;
 
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [CommonModule, FormsModule, Game]
-    }).compileComponents();
+  beforeEach(() => {
+    cdrMock = { markForCheck: vi.fn(), detectChanges: vi.fn() };
+    ngZoneMock = {
+      run: (fn: any) => fn(),
+      runOutsideAngular: (fn: any) => fn()
+    };
 
-    fixture = TestBed.createComponent(Game);
-    component = fixture.componentInstance;
+    mockWebSocket = {
+      send: vi.fn(),
+      close: vi.fn(),
+      onmessage: null,
+      onopen: null,
+      onerror: null,
+      onclose: null,
+      readyState: 1 // OPEN
+    };
+
+    const MockWebSocket = function(this: any) {
+      return mockWebSocket;
+    };
+    (MockWebSocket as any).OPEN = 1;
+    vi.stubGlobal('WebSocket', MockWebSocket);
+
+    component = new Game(cdrMock, ngZoneMock);
     component.settings = { side: 'white', difficulty: 1500, timeControl: '10+0' };
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('should create', () => {
@@ -73,4 +104,37 @@ describe('Game', () => {
     expect(component.cachedIsCheckmate).toBe(true);
     expect(component.cachedIsGameOver).toBe(true);
   });
+
+  describe('Tournament Mode', () => {
+    beforeEach(() => {
+      component.settings = { side: 'white', difficulty: 1500, timeControl: '10+0', tournamentMode: true };
+      component.ngOnInit();
+    });
+
+    it('should disable engineOverlayEnabled on initialization', () => {
+      expect(component.engineOverlayEnabled).toBe(false);
+    });
+
+    it('should prevent toggling engine overlay', () => {
+      component.engineOverlayEnabled = false;
+      component.toggleEngineOverlay();
+      expect(component.engineOverlayEnabled).toBe(false);
+    });
+
+    it('should prevent undoMove from executing', () => {
+      component.moveHistory = [{ from: 'e2', to: 'e4', san: 'e4', fenAfter: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1' }];
+      component.undoMove();
+      expect(component.moveHistory.length).toBe(1); // Length is unchanged
+    });
+
+    it('should not request evaluations after a move is made', () => {
+      mockWebSocket.send.mockClear();
+      component.makeAMove({ from: 'e2', to: 'e4' }, false);
+      
+      const calls = mockWebSocket.send.mock.calls;
+      const evaluateCall = calls.find((c: any) => JSON.parse(c[0]).type === 'EVALUATE_MOVE');
+      expect(evaluateCall).toBeUndefined();
+    });
+  });
 });
+
